@@ -4,7 +4,6 @@ import {
   OnGatewayInit,
   OnGatewayConnection,
 } from '@nestjs/websockets';
-import { DrawhistoryService } from 'src/drawhistory/drawhistory.service';
 import { DrawService } from 'src/draw/DrawService';
 import { Logger } from '@nestjs/common';
 import { Socket } from 'socket.io';

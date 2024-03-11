@@ -1,10 +1,14 @@
 import { Body, Controller, Get, Logger, Post, Query } from '@nestjs/common';
 import { WechatAuthService } from './wechat-auth.service';
+import { ApiProperty } from "@nestjs/swagger";
 
 @Controller('wechatauth')
 export class WechatAuthController {
   constructor(private readonly wechatAuthService: WechatAuthService) {}
   private readonly logger = new Logger(WechatAuthController.name);
+  @ApiProperty({
+
+  })
   @Get('getuserinfo')
   async getUserInfo(@Query('code') code: string) {
     this.logger.log(code);
