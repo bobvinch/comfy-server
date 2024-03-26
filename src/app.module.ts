@@ -30,7 +30,7 @@ import { WechatAuthModule } from './wechat-auth/wechat-auth.module';
     //OneAPI数据库
     TypeOrmModule.forRoot({
       type: 'mysql',
-      host: 'localhost',
+      host: '127.0.0.1',
       port: 3306,
       username: 'root',
       password: 'wangbo123',
@@ -39,7 +39,7 @@ import { WechatAuthModule } from './wechat-auth/wechat-auth.module';
       autoLoadEntities: true,
       synchronize: false,
     }),
-    MongooseModule.forRoot('mongodb://localhost:27017/test', {
+    MongooseModule.forRoot('mongodb://127.0.0.1:27017/test', {
       authSource: 'admin',
       user: 'username',
       pass: 'password',
@@ -48,7 +48,7 @@ import { WechatAuthModule } from './wechat-auth/wechat-auth.module';
       name: 'draw',
       useFactory: () => ({
         redis: {
-          host: 'localhost',
+          host: '127.0.0.1',
           port: 6379,
           password: '000415',
         },

@@ -16,6 +16,16 @@ export class DrawService {
     return job;
   }
   async getQueueLength() {
-    return await this.drawQueue.count();
+    return await this.drawQueue.getJobCounts();
+  }
+  async isInQueue(uid: string) {
+    const jobs = await this.drawQueue.getJobs(['waiting']);
+    for (let i = 0; i < jobs.length; i++) {
+      const { client_id } = jobs[i].data;
+      if (client_id && client_id === uid) {
+        return true;
+      }
+    }
+    return false;
   }
 }

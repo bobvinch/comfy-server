@@ -17,6 +17,7 @@ export class DrawConsumer {
   constructor(
     private readonly drawHistory: DrawhistoryService,
     private readonly drawService: DrawService,
+    private readonly wsGateway: WsGateway,
   ) {}
 
   private readonly logger = new Logger(DrawConsumer.name);
@@ -26,68 +27,104 @@ export class DrawConsumer {
   @Process('text2img')
   async text2img(job: Job) {
     this.logger.debug('Processing', job.id, 'for', 'seconds');
-    await this.drawTaskExcu(job.data);
+    let defaultimeout = 60;
+    const { api } = job.data;
+    switch (api) {
+      case '文生图':
+        defaultimeout = 30;
+        break;
+      case '图生图':
+        defaultimeout = 30;
+        break;
+      case 'AI模特':
+        defaultimeout = 120;
+        break;
+      case 'AI写真':
+        defaultimeout = 240;
+        break;
+      case '放大1':
+        defaultimeout = 120;
+        break;
+      case '放大2':
+        defaultimeout = 180;
+        break;
+    }
+    this.logger.error(defaultimeout);
+    await this.drawTaskExcu(job.data, defaultimeout);
+
+    //广播给所有人排队情况
+    const message = {
+      type: 'receive',
+      queue_remaining: await this.drawService.getQueueLength(),
+    };
+    WsGateway.server.emit('message', JSON.stringify(message));
     this.logger.debug('Processing done', job.id);
   }
 
-  //执行画画
-  async drawTaskExcu(data) {
-    const p1 = new Promise((resolve) => {
+  /**
+   *
+   * @param data
+   * @param timeout 超时时间，秒
+   */
+  async drawTaskExcu(data: any, timeout: number) {
+    let socket = '';
+    const p1 = new Promise((resolve, reject) => {
       //client_id为用户id
       this.websocketInit();
-      const { client_id, prompt } = data;
+      const { client_id, prompt, socket_id } = data;
+      socket = socket_id;
       const params = {
         client_id: 'admin9527', //固定值
         prompt: prompt,
       };
+      this.logger.debug(`发生绘画任务成功`);
       sendTackprompt(params).then((sendres: any) => {
         //监听服务器消息
         DrawConsumer.ws_client.onmessage = (event: any) => {
           //转发
           this.logger.debug(event.data);
-          const userTask = WsGateway.userTasks.find(
-            (item) => item.uid === client_id,
-          );
+
           //如果存在并且socket处于连接状态
-          if (userTask) {
-            const target_socket = WsGateway.server.sockets?.sockets?.get(
-              userTask.socket_id,
-            );
-            if (target_socket) {
-              this.logger.debug(`发送给${userTask.socket_id},${event.data}`);
-              target_socket.emit('message', event.data);
-            }
-          } else {
-            this.logger.error('没有找到对应任务');
-            resolve('没有找到对应任务');
+          const target_socket =
+            WsGateway.server.sockets?.sockets?.get(socket_id);
+          if (target_socket) {
+            this.logger.debug(`发送给${socket_id},${event.data}`);
+            target_socket.emit('message', event.data);
           }
-          const { type } = JSON.parse(event.data + '');
-          this.logger.debug('@@@@@@type', type);
-          if (type === 'executed') {
-            const {
-              data: {
-                output: { images },
-              },
-            } = JSON.parse(event.data + '');
-            if (images && images[0]?.filename.includes('final')) {
-              const drawhistory = {
-                user_id: client_id,
-                prompt_id: sendres.prompt_id,
-                draw_api: prompt,
-                filename: images[0]?.filename,
-                status: true,
-              };
-              //保存到数据库
-              this.drawHistory
-                .create(drawhistory)
-                .catch((err) => {
-                  this.logger.error(err);
-                })
-                .finally(() => {
-                  this.logger.error('保存到数据成功了');
-                  resolve('绘画任务最终完成');
-                });
+          try {
+            const { type } = JSON.parse(event.data + '');
+            if (type === 'executed') {
+              const {
+                data: {
+                  output: { images },
+                },
+              } = JSON.parse(event.data + '');
+              if (images && images[0]?.filename.includes('final')) {
+                const drawhistory = {
+                  user_id: client_id,
+                  prompt_id: sendres.prompt_id,
+                  draw_api: prompt,
+                  filename: images[0]?.filename,
+                  status: true,
+                };
+                //保存到数据库
+                this.drawHistory
+                  .create(drawhistory)
+                  .catch((err) => {
+                    this.logger.error(err);
+                  })
+                  .finally(() => {
+                    this.logger.log('保存到数据成功了');
+                    resolve('绘画任务最终完成');
+                  });
+              }
             }
+          } catch (e) {
+            this.wsGateway.sendSystemMessage(
+              socket,
+              '绘画任务执行异常，请重试',
+            );
+            this.logger.error(e);
           }
         };
       });
@@ -95,7 +132,7 @@ export class DrawConsumer {
     const p2 = new Promise((resolve, reject) => {
       setTimeout(() => {
         reject('Error.timeout……');
-      }, 240000);
+      }, timeout * 1000);
     });
 
     return Promise.race([p1, p2])
@@ -103,21 +140,9 @@ export class DrawConsumer {
         this.logger.debug('绘图任务执行完成');
       })
       .catch(() => {
+        this.wsGateway.sendSystemMessage(socket, '绘画任务执行异常，请重试');
         this.logger.error('绘图任务执行异常');
       });
-    // return new Promise((resolve, reject) => {
-    //   Promise.race([p1, p2])
-    //     .then(() => {
-    //       this.logger.debug('绘图任务执行完成');
-    //       resolve('执行完成');
-    //     })
-    //     .catch(() => {
-    //       this.logger.error('绘图任务执行异常');
-    //       reject('执行失败');
-    //     });
-    // });
-    // p.then((response) => this.logger.debug(response));
-    // p.catch((error) => this.logger.error(error));
   }
 
   /**
@@ -126,7 +151,7 @@ export class DrawConsumer {
   async websocketInit() {
     if (!this.validateWsconnect()) {
       DrawConsumer.ws_client = new WebSocket(
-        'ws://apps.gptpro.ink/websocket/ws?clientId=' + this.clientId,
+        'ws://www.gptpro.ink/websocket/ws?clientId=' + this.clientId,
       );
     }
   }
