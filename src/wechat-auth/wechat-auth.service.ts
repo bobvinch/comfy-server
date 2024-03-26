@@ -1,14 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 import { nanoid } from 'nanoid';
+import { ConfigService } from '@nestjs/config/dist';
 
 @Injectable()
 export class WechatAuthService {
+  constructor(private readonly configService: ConfigService) {}
   private readonly logger = new Logger(WechatAuthService.name);
-  private APPID = 'wx64c50e4c0243c5fb';
-  private SECRET = 'd03b65ba4fc4d2ea22940ae1341555c3';
+  private APPID = this.configService.get('CONFIG_AUTH_WECHAT_APPID');
+  private SECRET = this.configService.get('CONFIG_AUTH_WECHAT_SECRET');
   private wx_baseurl = 'https://api.weixin.qq.com';
-  private uni_baseurl = 'https://unicloudapi.gptpro.ink';
+  private uni_baseurl = 'https://unicloudapi.gptpro.ink'; //小程序账号登录链接
   /**
    *获取Access_token
    * @param code 用户扫码后获取到的code

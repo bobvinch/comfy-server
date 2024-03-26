@@ -5,12 +5,12 @@ import {
   OnQueueProgress,
 } from '@nestjs/bull';
 import { Job } from 'bull';
-import { sendTackprompt } from 'src/ws/comfyuiapi';
 import { WsGateway } from 'src/ws/ws.gateway';
 import WebSocket = require('ws'); // 导入WebSocket模块
 import { Logger } from '@nestjs/common';
 import { DrawhistoryService } from 'src/drawhistory/drawhistory.service';
 import { DrawService } from './DrawService';
+import { ConfigService } from '@nestjs/config/dist';
 
 @Processor('draw')
 export class DrawConsumer {
@@ -18,6 +18,7 @@ export class DrawConsumer {
     private readonly drawHistory: DrawhistoryService,
     private readonly drawService: DrawService,
     private readonly wsGateway: WsGateway,
+    private readonly configService: ConfigService,
   ) {}
 
   private readonly logger = new Logger(DrawConsumer.name);
@@ -78,7 +79,8 @@ export class DrawConsumer {
         prompt: prompt,
       };
       this.logger.debug(`发生绘画任务成功`);
-      sendTackprompt(params).then((sendres: any) => {
+
+      this.drawService.sendTackprompt(params).then((sendres: any) => {
         //监听服务器消息
         DrawConsumer.ws_client.onmessage = (event: any) => {
           //转发
@@ -151,7 +153,8 @@ export class DrawConsumer {
   async websocketInit() {
     if (!this.validateWsconnect()) {
       DrawConsumer.ws_client = new WebSocket(
-        'ws://www.gptpro.ink/websocket/ws?clientId=' + this.clientId,
+        `${this.configService.get('CONFIG_COMFYUI_WS_SERVER_URL')}/ws?clientId=` +
+          this.clientId,
       );
     }
   }
@@ -171,23 +174,6 @@ export class DrawConsumer {
         return !e;
       });
     }
-    // return new Promise((resolve) => {
-    //   if (
-    //     DrawConsumer.ws_client === undefined ||
-    //     DrawConsumer.ws_client.readyState != 1
-    //   ) {
-    //     resolve(false);
-    //   } else {
-    //     DrawConsumer.ws_client.ping('', true, (e: any) => {
-    //       this.logger.debug('当前的链接状态是否存在错误：', e);
-    //       if (e) {
-    //         resolve(false);
-    //       } else {
-    //         resolve(true);
-    //       }
-    //     });
-    //   }
-    // });
   }
 
   @OnQueueActive()

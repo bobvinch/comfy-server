@@ -26,23 +26,25 @@ import { WechatAuthModule } from './wechat-auth/wechat-auth.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: [`.env.${process.env.NODE_ENV}`],
     }),
-    //OneAPI数据库
+    //OneAPI数据库,如果不启动ONEAPI的大模型，删除此处的模块引入和oneapi模块
     TypeOrmModule.forRoot({
       type: 'mysql',
       host: '127.0.0.1',
       port: 3306,
-      username: 'root',
-      password: 'wangbo123',
-      database: 'oneapi',
+      username: new ConfigService().get('ONEAPI_MYSQL_USERNAME'),
+      password: new ConfigService().get('ONEAPI_MYSQL_PASSWORD'),
+      database: new ConfigService().get('ONEAPI_MYSQL_DATABASE'),
       // entities: [User],
       autoLoadEntities: true,
       synchronize: false,
     }),
+    //绘画记录保存,默认是需要开启的，新建
     MongooseModule.forRoot('mongodb://127.0.0.1:27017/test', {
       authSource: 'admin',
-      user: 'username',
-      pass: 'password',
+      user: new ConfigService().get('CONFIG_COMFYUI_HISTORY_MONGO_USERNAME'),
+      pass: new ConfigService().get('CONFIG_COMFYUI_HISTORY_MONGO_PASSWORD'),
     }),
     BullModule.registerQueueAsync({
       name: 'draw',
@@ -50,7 +52,7 @@ import { WechatAuthModule } from './wechat-auth/wechat-auth.module';
         redis: {
           host: '127.0.0.1',
           port: 6379,
-          password: '000415',
+          password: new ConfigService().get('CONFIG_COMFYUI_QUENE_REDIS_PASSWORD'),
         },
       }),
     }),

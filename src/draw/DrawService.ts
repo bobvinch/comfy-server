@@ -1,11 +1,29 @@
 import { Global, Injectable } from '@nestjs/common';
 import { Queue } from 'bull';
 import { InjectQueue } from '@nestjs/bull';
+import { ConfigService } from "@nestjs/config/dist";
+import axios from "axios";
 
 @Global()
 @Injectable()
 export class DrawService {
-  constructor(@InjectQueue('draw') private drawQueue: Queue) {}
+  constructor(
+    @InjectQueue('draw') private drawQueue: Queue,
+    private readonly configService: ConfigService,
+  ) {}
+  private readonly webSocketSeverUrl = this.configService.get(
+    'CONFIG_COMFYUI_HTTP_SERVER_URL',
+  );
+  private readonly comfyuiAxios = axios.create({
+    // baseURL: "/sdApi",
+    baseURL: this.webSocketSeverUrl,
+    timeout: 100000,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      Accept: '*/*',
+    },
+  });
+
   async sendToQueue(data: any) {
     console.log('发送队列触发了');
     const job = await this.drawQueue.add('text2img', data, {
@@ -18,6 +36,11 @@ export class DrawService {
   async getQueueLength() {
     return await this.drawQueue.getJobCounts();
   }
+
+  /**
+   * 判断uid是否已经有任务在队列中
+   * @param uid
+   */
   async isInQueue(uid: string) {
     const jobs = await this.drawQueue.getJobs(['waiting']);
     for (let i = 0; i < jobs.length; i++) {
@@ -27,5 +50,14 @@ export class DrawService {
       }
     }
     return false;
+  }
+
+  /**
+   * 返送任务到ComfyUI服务器
+   * @param data
+   */
+  sendTackprompt(data: any) {
+    console.log(this.webSocketSeverUrl);
+    return this.comfyuiAxios.post('/prompt', data);
   }
 }

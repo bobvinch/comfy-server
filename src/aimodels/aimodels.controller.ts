@@ -10,10 +10,11 @@ import {
 import { AimodelsService } from './aimodels.service';
 import { CreateAimodelDto } from './dto/create-aimodel.dto';
 import { UpdateAimodelDto } from './dto/update-aimodel.dto';
+import { ConfigService } from '@nestjs/config/dist';
 
 @Controller('aimodels')
 export class AimodelsController {
-  constructor(private readonly aimodelsService: AimodelsService) {}
+  constructor(private readonly aimodelsService: AimodelsService,private readonly configService: ConfigService) {}
 
   @Post()
   create(@Body() createAimodelDto: CreateAimodelDto) {
@@ -22,7 +23,9 @@ export class AimodelsController {
 
   @Get()
   findAll() {
-    return this.aimodelsService.findAll();
+    // return process.env.NODE_ENV;
+    // return this.configService.get('MONGO_DATABASE_URL');
+    // return this.aimodelsService.findAll();
   }
   @Get('enableModels')
   findEnable() {
