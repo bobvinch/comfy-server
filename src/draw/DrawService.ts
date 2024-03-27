@@ -1,8 +1,8 @@
-import { Global, Injectable } from '@nestjs/common';
+import { Global, Injectable, Logger } from '@nestjs/common';
 import { Queue } from 'bull';
 import { InjectQueue } from '@nestjs/bull';
-import { ConfigService } from "@nestjs/config/dist";
-import axios from "axios";
+import { ConfigService } from '@nestjs/config/dist';
+import axios from 'axios';
 
 @Global()
 @Injectable()
@@ -11,6 +11,7 @@ export class DrawService {
     @InjectQueue('draw') private drawQueue: Queue,
     private readonly configService: ConfigService,
   ) {}
+  private readonly logger = new Logger(DrawService.name);
   private readonly webSocketSeverUrl = this.configService.get(
     'CONFIG_COMFYUI_HTTP_SERVER_URL',
   );
@@ -57,7 +58,10 @@ export class DrawService {
    * @param data
    */
   sendTackprompt(data: any) {
-    console.log(this.webSocketSeverUrl);
+    this.logger.debug(
+      '配置为',
+      this.configService.get('CONFIG_COMFYUI_HTTP_SERVER_URL'),
+    );
     return this.comfyuiAxios.post('/prompt', data);
   }
 }

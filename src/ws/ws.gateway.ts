@@ -38,6 +38,11 @@ export class WsGateway implements OnGatewayInit, OnGatewayConnection {
     return 'Hello world1!';
   }
 
+  /**
+   * 核心逻辑，处理客户端的绘画消息
+   * @param client
+   * @param payload
+   */
   @SubscribeMessage('draw')
   async handleDrawMessage(client: any, payload: any): Promise<string> {
     this.logger.log('来自客户端' + client.id + '发来绘画指令');
@@ -53,6 +58,7 @@ export class WsGateway implements OnGatewayInit, OnGatewayConnection {
       );
       return;
     }
+    // 队列控制，同一个用户重复提交任务
     if (await this.drawService.isInQueue(client_id)) {
       const message = {
         type: 'reject',
