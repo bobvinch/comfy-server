@@ -27,7 +27,6 @@ import { BullModule } from '@nestjs/bull';
 import { ScheduleModule } from '@nestjs/schedule';
 import { WechatAuthModule } from './wechat-auth/wechat-auth.module';
 import { XMLMiddleware } from './middleware/XML.middleware';
-import { QueueModule } from './Queue/QueueModule';
 
 //'mongodb://username:password@localhost:27017/nest'
 @Module({
@@ -54,7 +53,16 @@ import { QueueModule } from './Queue/QueueModule';
       user: new ConfigService().get('CONFIG_COMFYUI_HISTORY_MONGO_USERNAME'),
       pass: new ConfigService().get('CONFIG_COMFYUI_HISTORY_MONGO_PASSWORD'),
     }),
-    QueueModule,
+    BullModule.registerQueueAsync({
+      name: 'draw',
+      useFactory: (configService: ConfigService) => ({
+        redis: {
+          host: '127.0.0.1',
+          port: 6379,
+          password: "000415",
+        },
+      }),
+    }),
     ScheduleModule.forRoot(),
     DrawhistoryModule,
     AimodelsModule,

@@ -1,9 +1,9 @@
-import { Global, Injectable } from '@nestjs/common';
-import { Queue } from 'bull';
-import { InjectQueue } from '@nestjs/bull';
-import { ConfigService } from '@nestjs/config/dist';
-import axios from 'axios';
-import comfyAPI_qicktext2img from './comfyAPI_qicktext2img.json';
+import { Injectable } from "@nestjs/common";
+import { Queue } from "bull";
+import { InjectQueue } from "@nestjs/bull";
+import { ConfigService } from "@nestjs/config/dist";
+import axios from "axios";
+import comfyAPI_qicktext2img from "./comfyAPI_qicktext2img.json";
 
 @Injectable()
 export class DrawService {
@@ -27,12 +27,11 @@ export class DrawService {
 
   async sendToQueue(data: any) {
     console.log('发送队列触发了');
-    const job = await this.drawQueue.add('text2img', data, {
-      removeOnComplete: true,
-    });
     // console.log('@@@@@@job result:');
     // console.log(job);
-    return job;
+    return await this.drawQueue.add('text2img', data, {
+      removeOnComplete: true,
+    });
   }
 
   async getQueueLength() {
