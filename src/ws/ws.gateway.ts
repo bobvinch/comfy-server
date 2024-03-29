@@ -4,9 +4,9 @@ import {
   OnGatewayInit,
   OnGatewayConnection,
 } from '@nestjs/websockets';
-import { DrawService } from 'src/draw/DrawService';
 import { Logger } from '@nestjs/common';
 import { Socket } from 'socket.io';
+import { DrawService, DrawTask } from "../draw/draw.service";
 @WebSocketGateway(3002, {
   // 解决跨域
   allowEIO3: true,
@@ -62,11 +62,12 @@ export class WsGateway implements OnGatewayInit, OnGatewayConnection {
     } else {
       //加入队列
       const data = {
+        source: 'web',
         client_id,
         prompt,
         api,
         socket_id: client.id,
-      };
+      } as DrawTask;
       await this.drawService.sendToQueue(data);
       //回复消息给客户端
       const message = {

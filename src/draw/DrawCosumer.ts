@@ -9,8 +9,9 @@ import { WsGateway } from 'src/ws/ws.gateway';
 import WebSocket = require('ws'); // 导入WebSocket模块
 import { Logger } from '@nestjs/common';
 import { DrawhistoryService } from 'src/drawhistory/drawhistory.service';
-import { DrawService } from './DrawService';
 import { ConfigService } from '@nestjs/config/dist';
+import { DrawService, DrawTask } from './draw.service';
+import { WechatAuthService } from '../wechat-auth/wechat-auth.service';
 
 @Processor('draw')
 export class DrawConsumer {
@@ -19,6 +20,7 @@ export class DrawConsumer {
     private readonly drawService: DrawService,
     private readonly wsGateway: WsGateway,
     private readonly configService: ConfigService,
+    private readonly wechatauthService: WechatAuthService,
   ) {}
 
   private readonly logger = new Logger(DrawConsumer.name);
@@ -67,12 +69,12 @@ export class DrawConsumer {
    * @param data
    * @param timeout 超时时间，秒
    */
-  async drawTaskExcu(data: any, timeout: number) {
+  async drawTaskExcu(data: DrawTask, timeout: number) {
     let socket = '';
     const p1 = new Promise((resolve, reject) => {
       //client_id为用户id
       this.websocketInit();
-      const { client_id, prompt, socket_id } = data;
+      const { source, client_id, prompt, socket_id } = data;
       socket = socket_id;
       const params = {
         client_id: 'admin9527', //固定值
@@ -82,7 +84,7 @@ export class DrawConsumer {
 
       this.drawService.sendTackprompt(params).then((sendres: any) => {
         //监听服务器消息
-        DrawConsumer.ws_client.onmessage = (event: any) => {
+        DrawConsumer.ws_client.onmessage = async (event: any) => {
           //转发
           this.logger.debug(event.data);
 
@@ -102,6 +104,34 @@ export class DrawConsumer {
                 },
               } = JSON.parse(event.data + '');
               if (images && images[0]?.filename.includes('final')) {
+                if (source === 'wechat') {
+                  //如果是微信消息
+                  const { filename, subfolder, type } = images[0];
+                  let imageUrl = '';
+                  if (subfolder) {
+                    imageUrl =
+                      this.drawService.webSocketSeverUrl +
+                      '/view?subfolder=' +
+                      subfolder +
+                      '&filename=' +
+                      filename +
+                      '&type=' +
+                      type;
+                  } else {
+                    imageUrl =
+                      this.drawService.webSocketSeverUrl +
+                      '/view?filename=' +
+                      filename +
+                      '&type=' +
+                      type;
+                  }
+                  const mediaId =
+                    await this.wechatauthService.getMediaId(imageUrl);
+                  await this.wechatauthService.sendServiceImageMessge(
+                    mediaId,
+                    client_id,
+                  );
+                }
                 const drawhistory = {
                   user_id: client_id,
                   prompt_id: sendres.prompt_id,

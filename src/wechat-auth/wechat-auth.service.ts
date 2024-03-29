@@ -2,16 +2,16 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 import { nanoid } from 'nanoid';
 import { ConfigService } from '@nestjs/config/dist';
-import { DrawService } from '../draw/DrawService';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
+import { DrawService } from '../draw/draw.service';
 
 @Injectable()
 export class WechatAuthService {
   constructor(
     // @InjectQueue('draw') private drawQueue: Queue,
     private readonly configService: ConfigService,
-    // private readonly drawService: DrawService,
+    private readonly drawService: DrawService,
   ) {}
 
   private readonly logger = new Logger(WechatAuthService.name);
@@ -105,28 +105,12 @@ export class WechatAuthService {
     return res.data;
   }
 
-  async MessageToDraw(message: string, uid: string) {
-    //发送任务给回话客户端
-    // const prompt_id = await this.drawService.quckText2img(message, uid);
-    // const output_url = await this.drawService.getOutputImage(prompt_id);
-    // return await this.getMediaId(output_url);
-  }
-
-  private async getMediaId(imageUrl: string) {
-    // const imageUrl =
-    //   'https://wangbo0808.oss-cn-shanghai.aliyuncs.com/aidraw/i2i_1.jpg';
-    return await this.uploadImage(imageUrl);
-  }
-
-  async uploadImage(imageUrl: string): Promise<string> {
-    const APPID = 'wx0244063c43bdacdb';
-    const AppSecret = '6a9cc6ae83b3665e4836d31e48e6b9a3';
-    const token_url = `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${APPID}&secret=${AppSecret}`;
-    const resResult = await axios.get(token_url);
-    console.log(resResult);
-    const { access_token } = resResult.data;
-    // const access_token =
-    //   '78_Z1omV3iAzJlvyXklgUyx2ulTLIGR9pP7HDV3pOB2AxJ9IKILlZuZcapYxd5SGnal4oYLCmdyC7Ur3Bpms_7OTHBjtyyPRhtiPiGA-TcFWzHjq4MkYtdlKF1lqzoDTTeACAQGG';
+  /**
+   * 上传图片文件作为临时素材，获取微信服务器的media_id
+   * @param imageUrl
+   */
+  async getMediaId(imageUrl: string): Promise<string> {
+    const access_token = await this.getAccessToken();
     const upload_url =
       this.wx_baseurl +
       `/cgi-bin/media/upload?access_token=${access_token}&type=image`;
@@ -140,14 +124,71 @@ export class WechatAuthService {
     });
     console.log('上传微信服务返回的数据', res.data);
     const { media_id } = res.data;
-    return media_id;
+    return media_id || '';
   }
+  private draw_access_token = {
+    token: '',
+    expires_in: Date.now(),
+  };
 
+  /**
+   * 获取微信公众号的token，如果token没有过期，直接使用，过期重新获取
+   * @private
+   */
+  private async getAccessToken(): Promise<string> {
+    const APPID = 'wx0244063c43bdacdb';
+    const AppSecret = '6a9cc6ae83b3665e4836d31e48e6b9a3';
+    const token_url = `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${APPID}&secret=${AppSecret}`;
+    if (
+      !this.draw_access_token.token ||
+      this.draw_access_token.expires_in <= Date.now()
+    ) {
+      // 获取access_token
+      const resResult = await axios.get(token_url);
+      console.log(resResult);
+      const { access_token } = resResult.data;
+      this.draw_access_token.token = access_token;
+      this.draw_access_token.expires_in = Date.now() + 7000 * 1000;
+      return access_token;
+    }
+    if (
+      this.draw_access_token.token &&
+      this.draw_access_token.expires_in > Date.now()
+    ) {
+      return this.draw_access_token.token;
+    }
+  }
+  /**
+   * 将url转换成file
+   * @param url 图片链接
+   * @param fileName 文件名
+   * @param mimeType 文件类型
+   * @private
+   */
   private async urlToFile(url, fileName, mimeType): Promise<File> {
     return fetch(url)
       .then((res) => res.arrayBuffer())
       .then((buffer) => {
         return new File([buffer], fileName, { type: mimeType });
       });
+  }
+
+  /**
+   * 发送客服图片消息
+   * @param media_id
+   * @param touser
+   */
+  async sendServiceImageMessge(media_id: string, touser: string) {
+    const access_token = await this.getAccessToken();
+    const url = `https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token=${access_token}`;
+    const message = {
+      touser: touser,
+      msgtype: 'image',
+      image: {
+        media_id: media_id,
+      },
+    };
+    const res = await axios.post(url, message);
+    console.log('发送结果：', res.data);
   }
 }

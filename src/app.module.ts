@@ -7,8 +7,6 @@ import {
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { WsGateway } from './ws/ws.gateway';
-import { DrawService } from './draw/DrawService';
-import { DrawModule } from './draw/DrawModule';
 import { DrawConsumer } from './draw/DrawCosumer';
 import { ConfigModule } from '@nestjs/config';
 
@@ -27,6 +25,9 @@ import { BullModule } from '@nestjs/bull';
 import { ScheduleModule } from '@nestjs/schedule';
 import { WechatAuthModule } from './wechat-auth/wechat-auth.module';
 import { XMLMiddleware } from './middleware/XML.middleware';
+import { TestModule } from './test/test.module';
+import { DrawModule } from './draw/draw.module';
+import { DrawService } from './draw/draw.service';
 
 //'mongodb://username:password@localhost:27017/nest'
 @Module({
@@ -53,25 +54,17 @@ import { XMLMiddleware } from './middleware/XML.middleware';
       user: new ConfigService().get('CONFIG_COMFYUI_HISTORY_MONGO_USERNAME'),
       pass: new ConfigService().get('CONFIG_COMFYUI_HISTORY_MONGO_PASSWORD'),
     }),
-    BullModule.registerQueueAsync({
-      name: 'draw',
-      useFactory: (configService: ConfigService) => ({
-        redis: {
-          host: '127.0.0.1',
-          port: 6379,
-          password: "000415",
-        },
-      }),
-    }),
-    ScheduleModule.forRoot(),
+
+    WechatAuthModule,
     DrawhistoryModule,
     AimodelsModule,
     UsersModule,
     TokensModule,
-    WechatAuthModule,
+    TestModule,
+    DrawModule,
   ],
   controllers: [AppController],
-  providers: [AppService, WsGateway, DrawService, DrawhistoryModule],
+  providers: [AppService, WsGateway, DrawConsumer, DrawhistoryModule],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

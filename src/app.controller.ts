@@ -1,6 +1,6 @@
-import { Controller, Get, Inject } from "@nestjs/common";
+import { Controller, Get, Inject } from '@nestjs/common';
 import { AppService } from './app.service';
-import { DrawService } from "./draw/DrawService";
+import { DrawService } from './draw/draw.service';
 
 @Controller()
 export class AppController {

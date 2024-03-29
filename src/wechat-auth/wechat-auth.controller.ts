@@ -12,30 +12,15 @@ import {
 import { Request, Response } from 'express';
 import { WechatAuthService } from './wechat-auth.service';
 import { ApiProperty } from '@nestjs/swagger';
-import { create } from 'xmlbuilder2';
 
-/**
- * 微信回调给开发者的消息
- */
-interface IWxMessageXmlData {
-  /** 开发者微信号 e.g. `gh_019087f88815`*/
-  ToUserName: string;
-  /** 发送方帐号（一个OpenID）e.g.: `o5w5awUl***5pIJKY`*/
-  FromUserName: string;
-  /** 消息创建时间 （整型）e.g.`1595855711` */
-  CreateTime: string;
-  /** 消息类型，此处为 `event` */
-  MsgType: string;
-  /** 事件类型，subscribe(订阅)、unsubscribe(取消订阅) */
-  Event: 'subscribe' | 'unsubscribe';
-  /** 事件KEY值，目前无用 */
-  EventKey: string;
-}
+import { DrawService } from '../draw/draw.service';
 
 @Controller('wechatauth')
 export class WechatAuthController {
-  constructor(private readonly wechatAuthService: WechatAuthService) {}
-
+  constructor(
+    private readonly wechatAuthService: WechatAuthService,
+    private readonly drawService: DrawService,
+  ) {}
   private readonly logger = new Logger(WechatAuthController.name);
 
   @ApiProperty({})
@@ -69,7 +54,11 @@ export class WechatAuthController {
    */
   @HttpCode(200)
   @Post('handleMessage')
-  async hangleMessage(@Body() xml: any, @Req() req: Request, @Res() res: Response) {
+  async hangleMessage(
+    @Body() xml: any,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
     console.log(xml);
     const {
       xml: {
@@ -79,27 +68,21 @@ export class WechatAuthController {
         Content: [content],
       },
     } = xml;
-    const resResult = create({
-      xml: {
-        ToUserName: from, //	接收方帐号（收到的OpenID）
-        FromUserName: to, //	开发者微信号
-        CreateTime: new Date().getTime(), //	消息创建时间 （整型）
-        MsgType: 'image',
-        Image: {
-          MediaId: await this.wechatAuthService.MessageToDraw(content, from),
-        },
-      },
-    }).end({ prettyPrint: true });
-    res.type('application/xml');
-    // res.send('success');
-    setTimeout(() => {
-      res.send(resResult);
-    }, 5000);
-
-    // console.log(resResult);
-    //
-    // return resResult;
+    //发送到任务队列
+    if (type === 'text') {
+      //文生图
+      await this.drawService.wechatText2img(content, from);
+    }
+    res.send('success');
   }
+
+  /**
+   * 对接服务器验证
+   * @param signature
+   * @param timestamp
+   * @param nonce
+   * @param echostr
+   */
   @Get('handleMessage')
   receiveMessage(
     @Query('signature') signature: string,

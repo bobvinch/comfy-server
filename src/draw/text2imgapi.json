@@ -19,7 +19,7 @@
       "proxies": "",
       "auth_data": "",
       "service": "GoogleTranslator",
-      "text": "一个女孩",
+      "text": "",
       "Show proxy": "proxy_hide",
       "Show authorization": "authorization_hide"
     },
@@ -72,7 +72,7 @@
   "32": {
     "inputs": {
       "add_noise": "enable",
-      "noise_seed": 345351246762840,
+      "noise_seed": 830784415360923,
       "steps": 5,
       "cfg": 1.5,
       "sampler_name": "lcm",
@@ -101,9 +101,33 @@
       "optional_vae": [
         "47",
         4
+      ],
+      "script": [
+        "44",
+        0
       ]
     },
     "class_type": "KSampler Adv. (Efficient)"
+  },
+  "44": {
+    "inputs": {
+      "upscale_type": "latent",
+      "hires_ckpt_name": "(use same)",
+      "latent_upscaler": "nearest-exact",
+      "pixel_upscaler": "4x-UltraSharp.pth",
+      "upscale_by": 1.5,
+      "use_same_seed": true,
+      "seed": -1,
+      "hires_steps": 12,
+      "denoise": 0.3,
+      "iterations": 1,
+      "use_controlnet": false,
+      "control_net_name": "control_sd15_random_color.pth",
+      "strength": 1,
+      "preprocessor": "CannyEdgePreprocessor",
+      "preprocessor_imgs": false
+    },
+    "class_type": "HighRes-Fix Script"
   },
   "45": {
     "inputs": {
