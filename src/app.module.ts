@@ -1,8 +1,14 @@
-import { Module } from '@nestjs/common';
+import {
+  MiddlewareConsumer,
+  Module,
+  NestModule,
+  RequestMethod,
+} from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { WsGateway } from './ws/ws.gateway';
 import { DrawService } from './draw/DrawService';
+import { DrawModule } from './draw/DrawModule';
 import { DrawConsumer } from './draw/DrawCosumer';
 import { ConfigModule } from '@nestjs/config';
 
@@ -20,6 +26,8 @@ import { BullModule } from '@nestjs/bull';
 //定时任务
 import { ScheduleModule } from '@nestjs/schedule';
 import { WechatAuthModule } from './wechat-auth/wechat-auth.module';
+import { XMLMiddleware } from './middleware/XML.middleware';
+import { QueueModule } from './Queue/QueueModule';
 
 //'mongodb://username:password@localhost:27017/nest'
 @Module({
@@ -46,16 +54,7 @@ import { WechatAuthModule } from './wechat-auth/wechat-auth.module';
       user: new ConfigService().get('CONFIG_COMFYUI_HISTORY_MONGO_USERNAME'),
       pass: new ConfigService().get('CONFIG_COMFYUI_HISTORY_MONGO_PASSWORD'),
     }),
-    BullModule.registerQueueAsync({
-      name: 'draw',
-      useFactory: () => ({
-        redis: {
-          host: '127.0.0.1',
-          port: 6379,
-          password: new ConfigService().get('CONFIG_COMFYUI_QUENE_REDIS_PASSWORD'),
-        },
-      }),
-    }),
+    QueueModule,
     ScheduleModule.forRoot(),
     DrawhistoryModule,
     AimodelsModule,
@@ -64,12 +63,13 @@ import { WechatAuthModule } from './wechat-auth/wechat-auth.module';
     WechatAuthModule,
   ],
   controllers: [AppController],
-  providers: [
-    AppService,
-    WsGateway,
-    DrawService,
-    DrawConsumer,
-    DrawhistoryModule,
-  ],
+  providers: [AppService, WsGateway, DrawService, DrawhistoryModule],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(XMLMiddleware).forRoutes({
+      path: 'wechatauth/handleMessage',
+      method: RequestMethod.POST,
+    });
+  }
+}

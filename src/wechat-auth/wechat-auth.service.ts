@@ -1,11 +1,19 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 import { nanoid } from 'nanoid';
 import { ConfigService } from '@nestjs/config/dist';
+import { DrawService } from '../draw/DrawService';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 
 @Injectable()
 export class WechatAuthService {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    // @InjectQueue('draw') private drawQueue: Queue,
+    private readonly configService: ConfigService,
+    // private readonly drawService: DrawService,
+  ) {}
+
   private readonly logger = new Logger(WechatAuthService.name);
   private APPID = this.configService.get('CONFIG_AUTH_WECHAT_APPID');
   private SECRET = this.configService.get('CONFIG_AUTH_WECHAT_SECRET');
@@ -28,6 +36,7 @@ export class WechatAuthService {
     const access_res = await axios.get(access_url);
     return access_res.data;
   }
+
   /**
    *根据code获取用户信息
    * @param code 微信返回的code,页面参数
@@ -51,6 +60,7 @@ export class WechatAuthService {
     //返回
     return 'Error';
   }
+
   //根据openid登录，如果是此一次登录则注册
   async loginByOpenid(
     openid: string,
@@ -93,5 +103,51 @@ export class WechatAuthService {
     }
 
     return res.data;
+  }
+
+  async MessageToDraw(message: string, uid: string) {
+    //发送任务给回话客户端
+    // const prompt_id = await this.drawService.quckText2img(message, uid);
+    // const output_url = await this.drawService.getOutputImage(prompt_id);
+    // return await this.getMediaId(output_url);
+  }
+
+  private async getMediaId(imageUrl: string) {
+    // const imageUrl =
+    //   'https://wangbo0808.oss-cn-shanghai.aliyuncs.com/aidraw/i2i_1.jpg';
+    return await this.uploadImage(imageUrl);
+  }
+
+  async uploadImage(imageUrl: string): Promise<string> {
+    const APPID = 'wx0244063c43bdacdb';
+    const AppSecret = '6a9cc6ae83b3665e4836d31e48e6b9a3';
+    const token_url = `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${APPID}&secret=${AppSecret}`;
+    const resResult = await axios.get(token_url);
+    console.log(resResult);
+    const { access_token } = resResult.data;
+    // const access_token =
+    //   '78_Z1omV3iAzJlvyXklgUyx2ulTLIGR9pP7HDV3pOB2AxJ9IKILlZuZcapYxd5SGnal4oYLCmdyC7Ur3Bpms_7OTHBjtyyPRhtiPiGA-TcFWzHjq4MkYtdlKF1lqzoDTTeACAQGG';
+    const upload_url =
+      this.wx_baseurl +
+      `/cgi-bin/media/upload?access_token=${access_token}&type=image`;
+    const file = await this.urlToFile(imageUrl, 'image.png', 'image/png');
+    const formdata = new FormData();
+    formdata.append('image', file);
+    const res = await axios.post(upload_url, formdata, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    console.log('上传微信服务返回的数据', res.data);
+    const { media_id } = res.data;
+    return media_id;
+  }
+
+  private async urlToFile(url, fileName, mimeType): Promise<File> {
+    return fetch(url)
+      .then((res) => res.arrayBuffer())
+      .then((buffer) => {
+        return new File([buffer], fileName, { type: mimeType });
+      });
   }
 }
