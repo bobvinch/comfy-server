@@ -12,7 +12,7 @@ import {
 import { Request, Response } from 'express';
 import { WechatAuthService } from './wechat-auth.service';
 import { ApiProperty } from '@nestjs/swagger';
-
+import { create } from 'xmlbuilder2';
 import { DrawService } from '../draw/draw.service';
 
 @Controller('wechatauth')
@@ -65,15 +65,44 @@ export class WechatAuthController {
         ToUserName: [to],
         FromUserName: [from],
         MsgType: [type],
-        Content: [content],
       },
     } = xml;
+    const resResult = create({
+      xml: {
+        ToUserName: from, // 接收方帐号（收到的OpenID）
+        FromUserName: to, // 开发者微信号
+        CreateTime: new Date().getTime(), // 消息创建时间 （整型）
+        MsgType: 'text',
+        Content: 'AI绘图中，请稍后',
+      },
+    }).end({ prettyPrint: true });
+
+    res.type('application/xml');
+    res.send(resResult);
     //发送到任务队列
     if (type === 'text') {
       //文生图
+      const {
+        xml: {
+          ToUserName: [to],
+          FromUserName: [from],
+          MsgType: [type],
+          Content: [content],
+        },
+      } = xml;
       await this.drawService.wechatText2img(content, from);
     }
-    res.send('success');
+    if (type === 'image') {
+      //   图生图
+      const {
+        xml: {
+          ToUserName: [to],
+          FromUserName: [from],
+          PicUrl: [imageurl],
+        },
+      } = xml;
+      await this.drawService.wechatImage2img(imageurl, from);
+    }
   }
 
   /**

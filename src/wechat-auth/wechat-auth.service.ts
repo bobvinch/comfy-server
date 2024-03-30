@@ -136,8 +136,8 @@ export class WechatAuthService {
    * @private
    */
   private async getAccessToken(): Promise<string> {
-    const APPID = 'wx0244063c43bdacdb';
-    const AppSecret = '6a9cc6ae83b3665e4836d31e48e6b9a3';
+    const APPID = this.configService.get('CONFIG_OFFICIAL_WECHAT_APPID');
+    const AppSecret = this.configService.get('CONFIG_OFFICIAL_WECHAT_SECRET');
     const token_url = `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${APPID}&secret=${AppSecret}`;
     if (
       !this.draw_access_token.token ||

@@ -13,6 +13,37 @@ import { ConfigService } from '@nestjs/config/dist';
 import { DrawService, DrawTask } from './draw.service';
 import { WechatAuthService } from '../wechat-auth/wechat-auth.service';
 
+interface ComfyAPIType {
+  type: '文生图' | '图生图' | 'AI模特' | 'AI写真' | '放大1' | '放大2';
+  timeout: number;
+}
+const APIS = [
+  {
+    type: '文生图',
+    timeout: 30,
+  },
+  {
+    type: '图生图',
+    timeout: 30,
+  },
+  {
+    type: 'AI模特',
+    timeout: 120,
+  },
+  {
+    type: 'AI写真',
+    timeout: 240,
+  },
+  {
+    type: '放大1',
+    timeout: 120,
+  },
+  {
+    type: '放大2',
+    timeout: 180,
+  },
+] as ComfyAPIType[];
+
 @Processor('draw')
 export class DrawConsumer {
   constructor(
@@ -24,34 +55,14 @@ export class DrawConsumer {
   ) {}
 
   private readonly logger = new Logger(DrawConsumer.name);
-  private readonly clientId = 'admin9527';
+  private readonly clientId = 'admin9527'; //id可以随意
   public static ws_client: WebSocket;
 
   @Process('text2img')
   async text2img(job: Job) {
     this.logger.debug('Processing', job.id, 'for', 'seconds');
-    let defaultimeout = 60;
     const { api } = job.data;
-    switch (api) {
-      case '文生图':
-        defaultimeout = 30;
-        break;
-      case '图生图':
-        defaultimeout = 30;
-        break;
-      case 'AI模特':
-        defaultimeout = 120;
-        break;
-      case 'AI写真':
-        defaultimeout = 240;
-        break;
-      case '放大1':
-        defaultimeout = 120;
-        break;
-      case '放大2':
-        defaultimeout = 180;
-        break;
-    }
+    const defaultimeout = APIS.find((item) => item.type === api)?.timeout || 60;
     this.logger.error(defaultimeout);
     await this.drawTaskExcu(job.data, defaultimeout);
 
@@ -71,7 +82,7 @@ export class DrawConsumer {
    */
   async drawTaskExcu(data: DrawTask, timeout: number) {
     let socket = '';
-    const p1 = new Promise((resolve, reject) => {
+    const p1 = new Promise((resolve) => {
       //client_id为用户id
       this.websocketInit();
       const { source, client_id, prompt, socket_id } = data;

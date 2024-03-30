@@ -20,14 +20,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from 'src/oneapi/users/users.module';
 import { TokensModule } from './oneapi/tokens/tokens.module';
 import { ConfigService } from '@nestjs/config/dist';
-import { BullModule } from '@nestjs/bull';
+
 //定时任务
-import { ScheduleModule } from '@nestjs/schedule';
+
 import { WechatAuthModule } from './wechat-auth/wechat-auth.module';
 import { XMLMiddleware } from './middleware/XML.middleware';
-import { TestModule } from './test/test.module';
 import { DrawModule } from './draw/draw.module';
-import { DrawService } from './draw/draw.service';
 
 //'mongodb://username:password@localhost:27017/nest'
 @Module({
@@ -60,7 +58,6 @@ import { DrawService } from './draw/draw.service';
     AimodelsModule,
     UsersModule,
     TokensModule,
-    TestModule,
     DrawModule,
   ],
   controllers: [AppController],
