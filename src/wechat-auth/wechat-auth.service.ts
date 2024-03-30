@@ -1,9 +1,7 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 import { nanoid } from 'nanoid';
 import { ConfigService } from '@nestjs/config/dist';
-import { InjectQueue } from '@nestjs/bull';
-import { Queue } from 'bull';
 import { DrawService } from '../draw/draw.service';
 
 @Injectable()

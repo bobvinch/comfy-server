@@ -8,7 +8,6 @@ import { Job } from 'bull';
 import { WsGateway } from 'src/ws/ws.gateway';
 import WebSocket = require('ws'); // 导入WebSocket模块
 import { Logger } from '@nestjs/common';
-import { DrawhistoryService } from 'src/drawhistory/drawhistory.service';
 import { ConfigService } from '@nestjs/config/dist';
 import { DrawService, DrawTask } from './draw.service';
 import { WechatAuthService } from '../wechat-auth/wechat-auth.service';
@@ -47,7 +46,6 @@ const APIS = [
 @Processor('draw')
 export class DrawConsumer {
   constructor(
-    private readonly drawHistory: DrawhistoryService,
     private readonly drawService: DrawService,
     private readonly wsGateway: WsGateway,
     private readonly configService: ConfigService,
@@ -143,23 +141,8 @@ export class DrawConsumer {
                     client_id,
                   );
                 }
-                const drawhistory = {
-                  user_id: client_id,
-                  prompt_id: sendres.prompt_id,
-                  draw_api: prompt,
-                  filename: images[0]?.filename,
-                  status: true,
-                };
-                //保存到数据库
-                this.drawHistory
-                  .create(drawhistory)
-                  .catch((err) => {
-                    this.logger.error(err);
-                  })
-                  .finally(() => {
-                    this.logger.log('保存到数据成功了');
-                    resolve('绘画任务最终完成');
-                  });
+                this.logger.log('保存到数据成功了');
+                resolve('绘画任务最终完成');
               }
             }
           } catch (e) {

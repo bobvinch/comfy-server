@@ -29,6 +29,7 @@
 开始使用前请先安装redis，并配置.env .end.development .env.production环境变量中密码，如果有的话，没有密码则将密码配置删除
 然后检查环境变量中ComfyUI的http路径和websocket路径
 ## 功能介绍
+<p>最新0330更新，一键接入微信公众号</p>
 <p>1、ComfyUI的绘画API服务转发，客户端必须使用socketIO链接，WS无法连接，注意版本</p>
 <p>2、默认支持跨越</p>
 <p>3、支持任务队列</p>
@@ -37,9 +38,9 @@
 ## 如何使用
 <p>1.先按照如下如下方式启动服务器</p>
 <p>2.客户端通过socketIO链接服务器，默认为3002端口，如果冲突在src/ws/ws.gateway.ts中修改</p>
-<p>3.以websocket消息形式提交，提交绘画任务,格式：{client_id:"userid", prompt:"comfyui API", api:"define a API name" }</p>
- 
-
+<p>3.以websocket消息形式提交，提交绘画任务,事件名称为draw,消息格式：{client_id:"userid", prompt:"comfyui API", api:"define a API name" }</p>
+<p>4、使用微信公众号绘画功能需要配置APPID和Secret</p>
+教程地址：https://www.bilibili.com/video/BV1aA4m1A7Nf?t=12.3
 ## Installation
 
 ```bash
