@@ -8,46 +8,61 @@ import { Job } from 'bull';
 import { WsGateway } from 'src/ws/ws.gateway';
 import WebSocket = require('ws'); // 导入WebSocket模块
 import { Logger } from '@nestjs/common';
-import { DrawService } from './DrawService';
+import { DrawhistoryService } from 'src/drawhistory/drawhistory.service';
 import { ConfigService } from '@nestjs/config/dist';
+import { DrawService, DrawTask } from './draw.service';
+import { WechatAuthService } from '../wechat-auth/wechat-auth.service';
+
+interface ComfyAPIType {
+  type: '文生图' | '图生图' | 'AI模特' | 'AI写真' | '放大1' | '放大2';
+  timeout: number;
+}
+const APIS = [
+  {
+    type: '文生图',
+    timeout: 30,
+  },
+  {
+    type: '图生图',
+    timeout: 30,
+  },
+  {
+    type: 'AI模特',
+    timeout: 120,
+  },
+  {
+    type: 'AI写真',
+    timeout: 240,
+  },
+  {
+    type: '放大1',
+    timeout: 120,
+  },
+  {
+    type: '放大2',
+    timeout: 180,
+  },
+] as ComfyAPIType[];
 
 @Processor('draw')
 export class DrawConsumer {
   constructor(
+    private readonly drawHistory: DrawhistoryService,
     private readonly drawService: DrawService,
     private readonly wsGateway: WsGateway,
     private readonly configService: ConfigService,
+    private readonly wechatauthService: WechatAuthService,
   ) {}
 
   private readonly logger = new Logger(DrawConsumer.name);
-  private readonly clientId = 'admin9527';
+  private readonly clientId = 'admin9527'; //id可以随意
   public static ws_client: WebSocket;
 
   @Process('text2img')
   async text2img(job: Job) {
     this.logger.debug('Processing', job.id, 'for', 'seconds');
-    let defaultimeout = 60;
     const { api } = job.data;
-    switch (api) {
-      case '文生图':
-        defaultimeout = 30;
-        break;
-      case '图生图':
-        defaultimeout = 30;
-        break;
-      case 'AI模特':
-        defaultimeout = 120;
-        break;
-      case 'AI写真':
-        defaultimeout = 240;
-        break;
-      case '放大1':
-        defaultimeout = 120;
-        break;
-      case '放大2':
-        defaultimeout = 180;
-        break;
-    }
+    const defaultimeout = APIS.find((item) => item.type === api)?.timeout || 60;
     this.logger.error(defaultimeout);
     await this.drawTaskExcu(job.data, defaultimeout);
 
@@ -65,12 +80,12 @@ export class DrawConsumer {
    * @param data
    * @param timeout 超时时间，秒
    */
-  async drawTaskExcu(data: any, timeout: number) {
+  async drawTaskExcu(data: DrawTask, timeout: number) {
     let socket = '';
-    const p1 = new Promise((resolve, reject) => {
+    const p1 = new Promise((resolve) => {
       //client_id为用户id
       this.websocketInit();
-      const { client_id, prompt, socket_id } = data;
+      const { source, client_id, prompt, socket_id } = data;
       socket = socket_id;
       const params = {
         client_id: 'admin9527', //固定值
@@ -80,7 +95,7 @@ export class DrawConsumer {
 
       this.drawService.sendTackprompt(params).then((sendres: any) => {
         //监听服务器消息
-        DrawConsumer.ws_client.onmessage = (event: any) => {
+        DrawConsumer.ws_client.onmessage = async (event: any) => {
           //转发
           this.logger.debug(event.data);
 
@@ -100,6 +115,34 @@ export class DrawConsumer {
                 },
               } = JSON.parse(event.data + '');
               if (images && images[0]?.filename.includes('final')) {
+                if (source === 'wechat') {
+                  //如果是微信消息
+                  const { filename, subfolder, type } = images[0];
+                  let imageUrl = '';
+                  if (subfolder) {
+                    imageUrl =
+                      this.drawService.webSocketSeverUrl +
+                      '/view?subfolder=' +
+                      subfolder +
+                      '&filename=' +
+                      filename +
+                      '&type=' +
+                      type;
+                  } else {
+                    imageUrl =
+                      this.drawService.webSocketSeverUrl +
+                      '/view?filename=' +
+                      filename +
+                      '&type=' +
+                      type;
+                  }
+                  const mediaId =
+                    await this.wechatauthService.getMediaId(imageUrl);
+                  await this.wechatauthService.sendServiceImageMessge(
+                    mediaId,
+                    client_id,
+                  );
+                }
                 const drawhistory = {
                   user_id: client_id,
                   prompt_id: sendres.prompt_id,
@@ -108,6 +151,15 @@ export class DrawConsumer {
                   status: true,
                 };
                 //保存到数据库
+                this.drawHistory
+                  .create(drawhistory)
+                  .catch((err) => {
+                    this.logger.error(err);
+                  })
+                  .finally(() => {
+                    this.logger.log('保存到数据成功了');
+                    resolve('绘画任务最终完成');
+                  });
               }
             }
           } catch (e) {

@@ -4,10 +4,9 @@ import {
   OnGatewayInit,
   OnGatewayConnection,
 } from '@nestjs/websockets';
-import { DrawService } from 'src/draw/DrawService';
 import { Logger } from '@nestjs/common';
 import { Socket } from 'socket.io';
-import { ConfigService } from "@nestjs/config/dist";
+import { DrawService, DrawTask } from "../draw/draw.service";
 @WebSocketGateway(3002, {
   // 解决跨域
   allowEIO3: true,
@@ -39,11 +38,6 @@ export class WsGateway implements OnGatewayInit, OnGatewayConnection {
     return 'Hello world1!';
   }
 
-  /**
-   * 核心逻辑，处理客户端的绘画消息
-   * @param client
-   * @param payload
-   */
   @SubscribeMessage('draw')
   async handleDrawMessage(client: any, payload: any): Promise<string> {
     this.logger.log('来自客户端' + client.id + '发来绘画指令');
@@ -59,7 +53,6 @@ export class WsGateway implements OnGatewayInit, OnGatewayConnection {
       );
       return;
     }
-    // 队列控制，同一个用户重复提交任务
     if (await this.drawService.isInQueue(client_id)) {
       const message = {
         type: 'reject',
@@ -69,11 +62,12 @@ export class WsGateway implements OnGatewayInit, OnGatewayConnection {
     } else {
       //加入队列
       const data = {
+        source: 'web',
         client_id,
         prompt,
         api,
         socket_id: client.id,
-      };
+      } as DrawTask;
       await this.drawService.sendToQueue(data);
       //回复消息给客户端
       const message = {
