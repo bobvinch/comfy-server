@@ -6,7 +6,7 @@ import {
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
 import { Socket } from 'socket.io';
-import { DrawService, DrawTask } from "../draw/draw.service";
+import { DrawService, DrawTask } from '../draw/draw.service';
 @WebSocketGateway(3002, {
   // 解决跨域
   allowEIO3: true,
@@ -53,7 +53,8 @@ export class WsGateway implements OnGatewayInit, OnGatewayConnection {
       );
       return;
     }
-    if (await this.drawService.isInQueue(client_id)) {
+    // AI推文不限制加入队列
+    if ((await this.drawService.isInQueue(client_id)) && api != 'AI推文') {
       const message = {
         type: 'reject',
         queue_remaining: await this.drawService.getQueueLength(),

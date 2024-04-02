@@ -14,7 +14,14 @@ import { DrawService, DrawTask } from './draw.service';
 import { WechatAuthService } from '../wechat-auth/wechat-auth.service';
 
 interface ComfyAPIType {
-  type: '文生图' | '图生图' | 'AI模特' | 'AI写真' | '放大1' | '放大2';
+  type:
+    | '文生图'
+    | '图生图'
+    | 'AI模特'
+    | 'AI写真'
+    | '放大1'
+    | '放大2'
+    | 'AI推文';
   timeout: number;
 }
 const APIS = [
@@ -62,7 +69,7 @@ export class DrawConsumer {
   async text2img(job: Job) {
     this.logger.debug('Processing', job.id, 'for', 'seconds');
     const { api } = job.data;
-    const defaultimeout = APIS.find((item) => item.type === api)?.timeout || 60;
+    const defaultimeout = APIS.find((item) => item.type === api)?.timeout || 30;
     this.logger.error(defaultimeout);
     await this.drawTaskExcu(job.data, defaultimeout);
 
