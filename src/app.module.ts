@@ -37,7 +37,7 @@ import { DrawModule } from './draw/draw.module';
     //OneAPI数据库,如果不启动ONEAPI的大模型，删除此处的模块引入和oneapi模块
     TypeOrmModule.forRoot({
       type: 'mysql',
-      host: '127.0.0.1',
+      host: '47.116.212.183',
       port: 3306,
       username: new ConfigService().get('ONEAPI_MYSQL_USERNAME'),
       password: new ConfigService().get('ONEAPI_MYSQL_PASSWORD'),
@@ -47,7 +47,7 @@ import { DrawModule } from './draw/draw.module';
       synchronize: false,
     }),
     //绘画记录保存,默认是需要开启的，新建
-    MongooseModule.forRoot('mongodb://127.0.0.1:27017/test', {
+    MongooseModule.forRoot('mongodb://47.116.212.183:27017/test', {
       authSource: 'admin',
       user: new ConfigService().get('CONFIG_COMFYUI_HISTORY_MONGO_USERNAME'),
       pass: new ConfigService().get('CONFIG_COMFYUI_HISTORY_MONGO_PASSWORD'),
@@ -59,6 +59,7 @@ import { DrawModule } from './draw/draw.module';
     UsersModule,
     TokensModule,
     DrawModule,
+    ConfigModule,
   ],
   controllers: [AppController],
   providers: [AppService, WsGateway, DrawConsumer, DrawhistoryModule],

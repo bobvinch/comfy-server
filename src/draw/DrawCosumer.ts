@@ -12,19 +12,28 @@ import { DrawhistoryService } from 'src/drawhistory/drawhistory.service';
 import { ConfigService } from '@nestjs/config/dist';
 import { DrawService, DrawTask } from './draw.service';
 import { WechatAuthService } from '../wechat-auth/wechat-auth.service';
+import { AppService } from '../app.service';
 
 interface ComfyAPIType {
-  type: '文生图' | '图生图' | 'AI模特' | 'AI写真' | '放大1' | '放大2';
+  type:
+    | '文生图'
+    | '图生图'
+    | 'AI模特'
+    | 'AI写真'
+    | '放大1'
+    | '放大2'
+    | 'AI推文';
   timeout: number;
 }
+
 const APIS = [
   {
     type: '文生图',
-    timeout: 30,
+    timeout: 10,
   },
   {
     type: '图生图',
-    timeout: 30,
+    timeout: 10,
   },
   {
     type: 'AI模特',
@@ -52,6 +61,7 @@ export class DrawConsumer {
     private readonly wsGateway: WsGateway,
     private readonly configService: ConfigService,
     private readonly wechatauthService: WechatAuthService,
+    private readonly appSevice: AppService,
   ) {}
 
   private readonly logger = new Logger(DrawConsumer.name);
@@ -62,16 +72,17 @@ export class DrawConsumer {
   async text2img(job: Job) {
     this.logger.debug('Processing', job.id, 'for', 'seconds');
     const { api } = job.data;
-    const defaultimeout = APIS.find((item) => item.type === api)?.timeout || 60;
-    this.logger.error(defaultimeout);
-    await this.drawTaskExcu(job.data, defaultimeout);
-
-    //广播给所有人排队情况
-    const message = {
-      type: 'receive',
-      queue_remaining: await this.drawService.getQueueLength(),
-    };
-    WsGateway.server.emit('message', JSON.stringify(message));
+    this.logger.debug(api);
+    // const defaultimeout = APIS.find((item) => item.type === api)?.timeout || 30;
+    // this.logger.debug(defaultimeout);
+    // // 绘画任务
+    // await this.drawTaskExcu(job.data, defaultimeout);
+    // //广播给所有人排队情况
+    // const message = {
+    //   type: 'receive',
+    //   queue_remaining: await this.drawService.getQueueLength(),
+    // };
+    // WsGateway.server.emit('message', JSON.stringify(message));
     this.logger.debug('Processing done', job.id);
   }
 
@@ -82,9 +93,9 @@ export class DrawConsumer {
    */
   async drawTaskExcu(data: DrawTask, timeout: number) {
     let socket = '';
-    const p1 = new Promise((resolve) => {
+    const p1 = new Promise(async (resolve) => {
       //client_id为用户id
-      this.websocketInit();
+      await this.websocketInit();
       const { source, client_id, prompt, socket_id } = data;
       socket = socket_id;
       const params = {
@@ -143,23 +154,27 @@ export class DrawConsumer {
                     client_id,
                   );
                 }
-                const drawhistory = {
-                  user_id: client_id,
-                  prompt_id: sendres.prompt_id,
-                  draw_api: prompt,
-                  filename: images[0]?.filename,
-                  status: true,
-                };
                 //保存到数据库
-                this.drawHistory
-                  .create(drawhistory)
-                  .catch((err) => {
-                    this.logger.error(err);
-                  })
-                  .finally(() => {
-                    this.logger.log('保存到数据成功了');
-                    resolve('绘画任务最终完成');
-                  });
+                if (this.appSevice.Draw_SaveHistory) {
+                  const drawhistory = {
+                    user_id: client_id,
+                    prompt_id: sendres.prompt_id,
+                    draw_api: prompt,
+                    filename: images[0]?.filename,
+                    status: true,
+                  };
+                  //保存到数据库
+                  this.drawHistory
+                    .create(drawhistory)
+                    .catch((err) => {
+                      this.logger.error(err);
+                    })
+                    .finally(() => {
+                      this.logger.log('保存到数据成功了');
+                    });
+                }
+                this.logger.log('绘画任务最终完成');
+                resolve('绘画任务最终完成');
               }
             }
           } catch (e) {
@@ -180,7 +195,7 @@ export class DrawConsumer {
 
     return Promise.race([p1, p2])
       .then(() => {
-        this.logger.debug('绘图任务执行完成');
+        this.logger.log('绘图任务执行完成');
       })
       .catch(() => {
         this.wsGateway.sendSystemMessage(socket, '绘画任务执行异常，请重试');
@@ -193,6 +208,7 @@ export class DrawConsumer {
    */
   async websocketInit() {
     if (!this.validateWsconnect()) {
+      this.logger.debug('链接不存在，重新链接');
       DrawConsumer.ws_client = new WebSocket(
         `${this.configService.get('CONFIG_COMFYUI_WS_SERVER_URL')}/ws?clientId=` +
           this.clientId,
