@@ -1,0 +1,66 @@
+{
+  "5": {
+    "inputs": {
+      "output_path": "[time(%Y-%m-%d)]",
+      "filename_prefix": [
+        "16",
+        0
+      ],
+      "filename_delimiter": "_",
+      "filename_number_padding": 4,
+      "filename_number_start": "false",
+      "extension": "png",
+      "quality": 100,
+      "lossless_webp": "false",
+      "overwrite_mode": "false",
+      "show_history": "false",
+      "show_history_by_prefix": "true",
+      "embed_workflow": "true",
+      "show_previews": "true",
+      "images": [
+        "11",
+        0
+      ]
+    },
+    "class_type": "Image Save"
+  },
+  "11": {
+    "inputs": {
+      "upscale_model": [
+        "12",
+        0
+      ],
+      "image": [
+        "15",
+        0
+      ]
+    },
+    "class_type": "ImageUpscaleWithModel"
+  },
+  "12": {
+    "inputs": {
+      "model_name": "4x-UltraSharp.pth"
+    },
+    "class_type": "UpscaleModelLoader"
+  },
+  "15": {
+    "inputs": {
+      "image_path": "E:\\ComfyUI_windows_portable\\ComfyUI\\output\\ComfyUI_01494_.png",
+      "RGBA": "false",
+      "filename_text_extension": "false"
+    },
+    "class_type": "Image Load"
+  },
+  "16": {
+    "inputs": {
+      "delimiter": "_",
+      "clean_whitespace": "true",
+      "text_a": [
+        "15",
+        2
+      ],
+      "text_b": "output_upscale_final_"
+    },
+    "class_type": "Text Concatenate"
+  }
+}

@@ -1,0 +1,118 @@
+{
+  "5": {
+    "inputs": {
+      "prompt": [
+        "19",
+        0
+      ],
+      "threshold": 0.31,
+      "sam_model": [
+        "6",
+        0
+      ],
+      "grounding_dino_model": [
+        "7",
+        0
+      ],
+      "image": [
+        "62",
+        0
+      ]
+    },
+    "class_type": "GroundingDinoSAMSegment (segment anything)"
+  },
+  "6": {
+    "inputs": {
+      "model_name": "sam_vit_h_4b8939.pth",
+      "device_mode": "Prefer GPU"
+    },
+    "class_type": "SAMLoader"
+  },
+  "7": {
+    "inputs": {
+      "model_name": "GroundingDINO_SwinB (938MB)"
+    },
+    "class_type": "GroundingDinoModelLoader (segment anything)"
+  },
+  "19": {
+    "inputs": {
+      "from_translate": "auto",
+      "to_translate": "english",
+      "add_proxies": "disable",
+      "proxies": "",
+      "auth_data": "",
+      "service": "GoogleTranslator",
+      "text": "人",
+      "Show proxy": "proxy_hide",
+      "Show authorization": "authorization_hide"
+    },
+    "class_type": "DeepTranslatorTextNode"
+  },
+  "44": {
+    "inputs": {
+      "mask": [
+        "5",
+        1
+      ]
+    },
+    "class_type": "InvertMask"
+  },
+  "59": {
+    "inputs": {
+      "image": [
+        "5",
+        0
+      ],
+      "alpha": [
+        "44",
+        0
+      ]
+    },
+    "class_type": "JoinImageWithAlpha"
+  },
+  "62": {
+    "inputs": {
+      "image_path": "C:\\Users\\wangb\\Downloads\\image1 - 2024-03-19T221914.324.png",
+      "RGBA": "false",
+      "filename_text_extension": "true"
+    },
+    "class_type": "Image Load"
+  },
+  "63": {
+    "inputs": {
+      "output_path": "[time(%Y-%m-%d)]",
+      "filename_prefix": [
+        "66",
+        0
+      ],
+      "filename_delimiter": "_",
+      "filename_number_padding": 4,
+      "filename_number_start": "false",
+      "extension": "png",
+      "quality": 100,
+      "lossless_webp": "false",
+      "overwrite_mode": "false",
+      "show_history": "false",
+      "show_history_by_prefix": "true",
+      "embed_workflow": "true",
+      "show_previews": "true",
+      "images": [
+        "59",
+        0
+      ]
+    },
+    "class_type": "Image Save"
+  },
+  "66": {
+    "inputs": {
+      "delimiter": "-",
+      "clean_whitespace": "true",
+      "text_a": [
+        "19",
+        0
+      ],
+      "text_b": "output_matting_final_"
+    },
+    "class_type": "Text Concatenate"
+  }
+}

@@ -1,7 +1,7 @@
 import { Entity, Column, PrimaryGeneratedColumn, BaseEntity, PrimaryColumn } from 'typeorm';
 
 @Entity({ name: 'users' })
-export class User extends BaseEntity {
+export class OneAPIUser extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;
   @Column()

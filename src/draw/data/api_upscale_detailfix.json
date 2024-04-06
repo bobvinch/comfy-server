@@ -1,0 +1,135 @@
+{
+  "5": {
+    "inputs": {
+      "output_path": "[time(%Y-%m-%d)]",
+      "filename_prefix": [
+        "16",
+        0
+      ],
+      "filename_delimiter": "_",
+      "filename_number_padding": 4,
+      "filename_number_start": "false",
+      "extension": "png",
+      "quality": 100,
+      "lossless_webp": "false",
+      "overwrite_mode": "false",
+      "show_history": "false",
+      "show_history_by_prefix": "true",
+      "embed_workflow": "true",
+      "show_previews": "true",
+      "images": [
+        "28",
+        0
+      ]
+    },
+    "class_type": "Image Save"
+  },
+  "15": {
+    "inputs": {
+      "image_path": "E:\\ComfyUI_windows_portable\\ComfyUI\\output\\ComfyUI_01494_.png",
+      "RGBA": "false",
+      "filename_text_extension": "false"
+    },
+    "class_type": "Image Load"
+  },
+  "16": {
+    "inputs": {
+      "delimiter": "_",
+      "clean_whitespace": "true",
+      "text_a": [
+        "15",
+        2
+      ],
+      "text_b": "upscale_detailfix_final_"
+    },
+    "class_type": "Text Concatenate"
+  },
+  "23": {
+    "inputs": {
+      "ckpt_name": "极氪写实MAX-极氪白系列模型_V6.safetensors",
+      "vae_name": "vae-ft-mse-840000-ema-pruned.safetensors",
+      "clip_skip": -2,
+      "lora_name": "None",
+      "lora_model_strength": 1,
+      "lora_clip_strength": 1,
+      "positive": [
+        "24",
+        0
+      ],
+      "negative": "CLIP_NEGATIVE",
+      "token_normalization": "none",
+      "weight_interpretation": "comfy",
+      "empty_latent_width": 512,
+      "empty_latent_height": 512,
+      "batch_size": 1
+    },
+    "class_type": "Efficient Loader"
+  },
+  "24": {
+    "inputs": {
+      "model": "wd-v1-4-moat-tagger-v2",
+      "threshold": 0.35,
+      "character_threshold": 0.85,
+      "exclude_tags": "",
+      "tags": "1girl, solo, long_hair, looking_at_viewer, brown_hair, black_hair, bare_shoulders, brown_eyes, jewelry, upper_body, earrings, lips, eyelashes, red_background, realistic, nose",
+      "image": [
+        "15",
+        0
+      ]
+    },
+    "class_type": "WD14Tagger|pysssss"
+  },
+  "28": {
+    "inputs": {
+      "upscale_by": 2,
+      "seed": 54765465571794,
+      "steps": 20,
+      "cfg": 8,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "denoise": 0.25,
+      "mode_type": "Linear",
+      "tile_width": 512,
+      "tile_height": 512,
+      "mask_blur": 8,
+      "tile_padding": 32,
+      "seam_fix_mode": "None",
+      "seam_fix_denoise": 1,
+      "seam_fix_width": 64,
+      "seam_fix_mask_blur": 8,
+      "seam_fix_padding": 16,
+      "force_uniform_tiles": "enable",
+      "image": [
+        "15",
+        0
+      ],
+      "model": [
+        "23",
+        0
+      ],
+      "positive": [
+        "23",
+        1
+      ],
+      "negative": [
+        "23",
+        2
+      ],
+      "vae": [
+        "23",
+        4
+      ],
+      "upscale_model": [
+        "29",
+        0
+      ]
+    },
+    "class_type": "UltimateSDUpscale"
+  },
+  "29": {
+    "inputs": {
+      "model_name": "4x-UltraSharp.pth"
+    },
+    "class_type": "UpscaleModelLoader"
+  }
+}

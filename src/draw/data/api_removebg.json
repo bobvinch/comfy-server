@@ -1,0 +1,65 @@
+{
+  "62": {
+    "inputs": {
+      "image_path": "E:\\ComfyUI_windows_portable\\ComfyUI\\input\\canvasimage (35).png",
+      "RGBA": "false",
+      "filename_text_extension": "true"
+    },
+    "class_type": "Image Load"
+  },
+  "63": {
+    "inputs": {
+      "output_path": "[time(%Y-%m-%d)]",
+      "filename_prefix": [
+        "66",
+        0
+      ],
+      "filename_delimiter": "_",
+      "filename_number_padding": 4,
+      "filename_number_start": "false",
+      "extension": "png",
+      "quality": 100,
+      "lossless_webp": "false",
+      "overwrite_mode": "false",
+      "show_history": "false",
+      "show_history_by_prefix": "true",
+      "embed_workflow": "true",
+      "show_previews": "true",
+      "images": [
+        "72",
+        0
+      ]
+    },
+    "class_type": "Image Save"
+  },
+  "66": {
+    "inputs": {
+      "delimiter": "-",
+      "clean_whitespace": "true",
+      "text_a": [
+        "62",
+        2
+      ],
+      "text_b": "output_rmbg_final_"
+    },
+    "class_type": "Text Concatenate"
+  },
+  "72": {
+    "inputs": {
+      "transparency": true,
+      "model": "u2net",
+      "post_processing": false,
+      "only_mask": false,
+      "alpha_matting": false,
+      "alpha_matting_foreground_threshold": 240,
+      "alpha_matting_background_threshold": 10,
+      "alpha_matting_erode_size": 10,
+      "background_color": "none",
+      "images": [
+        "62",
+        0
+      ]
+    },
+    "class_type": "Image Rembg (Remove Background)"
+  }
+}

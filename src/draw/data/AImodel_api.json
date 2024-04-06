@@ -1,0 +1,593 @@
+{
+  "42": {
+    "inputs": {
+      "upscale_method": "nearest-exact",
+      "scale_by": 1,
+      "image": [
+        "170",
+        0
+      ]
+    },
+    "class_type": "ImageScaleBy"
+  },
+  "54": {
+    "inputs": {
+      "cloth_type": "None",
+      "return_form": "mask",
+      "image": [
+        "42",
+        0
+      ]
+    },
+    "class_type": "ALY_Seg_Cloth"
+  },
+  "62": {
+    "inputs": {
+      "mask": [
+        "115",
+        0
+      ]
+    },
+    "class_type": "InvertMask"
+  },
+  "63": {
+    "inputs": {
+      "samples": [
+        "64",
+        0
+      ],
+      "mask": [
+        "62",
+        0
+      ]
+    },
+    "class_type": "SetLatentNoiseMask"
+  },
+  "64": {
+    "inputs": {
+      "pixels": [
+        "42",
+        0
+      ],
+      "vae": [
+        "143",
+        4
+      ]
+    },
+    "class_type": "VAEEncode"
+  },
+  "74": {
+    "inputs": {
+      "channel": "red",
+      "image": [
+        "54",
+        1
+      ]
+    },
+    "class_type": "ImageToMask"
+  },
+  "87": {
+    "inputs": {
+      "text": "(吊带:1.5)"
+    },
+    "class_type": "Text Multiline"
+  },
+  "88": {
+    "inputs": {
+      "from_translate": "auto",
+      "to_translate": "english",
+      "add_proxies": "disable",
+      "proxies": "",
+      "auth_data": "",
+      "service": "GoogleTranslator",
+      "text": [
+        "87",
+        0
+      ],
+      "Show proxy": "proxy_hide",
+      "Show authorization": "authorization_hide"
+    },
+    "class_type": "DeepTranslatorTextNode"
+  },
+  "95": {
+    "inputs": {
+      "delimiter": ",",
+      "clean_whitespace": "true",
+      "text_a": [
+        "88",
+        0
+      ],
+      "text_b": [
+        "96",
+        0
+      ]
+    },
+    "class_type": "Text Concatenate"
+  },
+  "96": {
+    "inputs": {
+      "text": "NSFW,lowrs,blurry,deformed, distorted, disfigured:1.3, stacked torsos:1.2, totem pole:1.1, poorly drawn, bad anatomy, wrong anatomy, missing arms, missing legs, extra arms, extra legs, fused fingers, too many fingers, long neck,extra limb, missing limb, floating limbs, mutated hands and fingers:1.4, disconnected limbs, mutation, mutated, ugly, disgusting, blurry, amputation, extra fingers:1.2, worst quality, low quality:1.3out of frame, worst quality, low quality, jpeg artifacts, ugly, duplicate, morbid, mutilated, mutation, deformed, blurry, dehydrated, bad proportions, extra limbs, cloned face, disfigured, gross proportions, malformed limbs"
+    },
+    "class_type": "Text Multiline"
+  },
+  "115": {
+    "inputs": {
+      "expand": 1,
+      "tapered_corners": false,
+      "mask": [
+        "74",
+        0
+      ]
+    },
+    "class_type": "GrowMask"
+  },
+  "122": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "destination": [
+        "128",
+        0
+      ],
+      "source": [
+        "42",
+        0
+      ],
+      "mask": [
+        "74",
+        0
+      ]
+    },
+    "class_type": "ImageCompositeMasked"
+  },
+  "127": {
+    "inputs": {
+      "value": [
+        "42",
+        0
+      ]
+    },
+    "class_type": "ImpactImageInfo"
+  },
+  "128": {
+    "inputs": {
+      "width": [
+        "127",
+        2
+      ],
+      "height": [
+        "127",
+        1
+      ],
+      "red": 255,
+      "green": 255,
+      "blue": 255
+    },
+    "class_type": "Image Blank"
+  },
+  "129": {
+    "inputs": {
+      "filename_prefix": "aimodel_mask",
+      "images": [
+        "122",
+        0
+      ]
+    },
+    "class_type": "SaveImage"
+  },
+  "130": {
+    "inputs": {
+      "guide_size": 256,
+      "guide_size_for": true,
+      "max_size": 768,
+      "seed": 255582749293796,
+      "steps": 5,
+      "cfg": 1.5,
+      "sampler_name": "lcm",
+      "scheduler": "sgm_uniform",
+      "denoise": 0.5,
+      "feather": 5,
+      "noise_mask": true,
+      "force_inpaint": true,
+      "bbox_threshold": 0.5,
+      "bbox_dilation": 10,
+      "bbox_crop_factor": 3,
+      "sam_detection_hint": "center-1",
+      "sam_dilation": 0,
+      "sam_threshold": 0.93,
+      "sam_bbox_expansion": 0,
+      "sam_mask_hint_threshold": 0.7,
+      "sam_mask_hint_use_negative": "False",
+      "drop_size": 10,
+      "wildcard": "",
+      "cycle": 1,
+      "image": [
+        "142",
+        5
+      ],
+      "model": [
+        "142",
+        0
+      ],
+      "clip": [
+        "143",
+        5
+      ],
+      "vae": [
+        "142",
+        4
+      ],
+      "positive": [
+        "142",
+        1
+      ],
+      "negative": [
+        "142",
+        2
+      ],
+      "bbox_detector": [
+        "138",
+        0
+      ]
+    },
+    "class_type": "FaceDetailer"
+  },
+  "138": {
+    "inputs": {
+      "model_name": "bbox/face_yolov8m.pt"
+    },
+    "class_type": "UltralyticsDetectorProvider"
+  },
+  "142": {
+    "inputs": {
+      "seed": 255582749293796,
+      "steps": 5,
+      "cfg": 1.5,
+      "sampler_name": "lcm",
+      "scheduler": "sgm_uniform",
+      "denoise": 1,
+      "preview_method": "none",
+      "vae_decode": "true",
+      "model": [
+        "143",
+        0
+      ],
+      "positive": [
+        "143",
+        1
+      ],
+      "negative": [
+        "143",
+        2
+      ],
+      "latent_image": [
+        "63",
+        0
+      ],
+      "optional_vae": [
+        "143",
+        4
+      ]
+    },
+    "class_type": "KSampler (Efficient)"
+  },
+  "143": {
+    "inputs": {
+      "ckpt_name": "极氪写实MAX-极氪白系列模型_V6.safetensors",
+      "vae_name": "Baked VAE",
+      "clip_skip": -2,
+      "lora_name": "None",
+      "lora_model_strength": 1,
+      "lora_clip_strength": 1,
+      "positive": [
+        "159",
+        0
+      ],
+      "negative": [
+        "95",
+        0
+      ],
+      "token_normalization": "none",
+      "weight_interpretation": "A1111",
+      "empty_latent_width": 512,
+      "empty_latent_height": 512,
+      "batch_size": 1,
+      "lora_stack": [
+        "147",
+        0
+      ],
+      "cnet_stack": [
+        "153",
+        0
+      ]
+    },
+    "class_type": "Efficient Loader"
+  },
+  "147": {
+    "inputs": {
+      "input_mode": "simple",
+      "lora_count": 3,
+      "lora_name_1": "lcm\\lcm_sd1.5_pytorch_lora_weights.safetensors",
+      "lora_wt_1": 1,
+      "model_str_1": 1,
+      "clip_str_1": 1,
+      "lora_name_2": "None",
+      "lora_wt_2": 1,
+      "model_str_2": 1,
+      "clip_str_2": 1,
+      "lora_name_3": "None",
+      "lora_wt_3": 1,
+      "model_str_3": 1,
+      "clip_str_3": 1,
+      "lora_name_4": "None",
+      "lora_wt_4": 1,
+      "model_str_4": 1,
+      "clip_str_4": 1,
+      "lora_name_5": "None",
+      "lora_wt_5": 1,
+      "model_str_5": 1,
+      "clip_str_5": 1,
+      "lora_name_6": "None",
+      "lora_wt_6": 1,
+      "model_str_6": 1,
+      "clip_str_6": 1,
+      "lora_name_7": "None",
+      "lora_wt_7": 1,
+      "model_str_7": 1,
+      "clip_str_7": 1,
+      "lora_name_8": "None",
+      "lora_wt_8": 1,
+      "model_str_8": 1,
+      "clip_str_8": 1,
+      "lora_name_9": "None",
+      "lora_wt_9": 1,
+      "model_str_9": 1,
+      "clip_str_9": 1,
+      "lora_name_10": "None",
+      "lora_wt_10": 1,
+      "model_str_10": 1,
+      "clip_str_10": 1,
+      "lora_name_11": "None",
+      "lora_wt_11": 1,
+      "model_str_11": 1,
+      "clip_str_11": 1,
+      "lora_name_12": "None",
+      "lora_wt_12": 1,
+      "model_str_12": 1,
+      "clip_str_12": 1,
+      "lora_name_13": "None",
+      "lora_wt_13": 1,
+      "model_str_13": 1,
+      "clip_str_13": 1,
+      "lora_name_14": "None",
+      "lora_wt_14": 1,
+      "model_str_14": 1,
+      "clip_str_14": 1,
+      "lora_name_15": "None",
+      "lora_wt_15": 1,
+      "model_str_15": 1,
+      "clip_str_15": 1,
+      "lora_name_16": "None",
+      "lora_wt_16": 1,
+      "model_str_16": 1,
+      "clip_str_16": 1,
+      "lora_name_17": "None",
+      "lora_wt_17": 1,
+      "model_str_17": 1,
+      "clip_str_17": 1,
+      "lora_name_18": "None",
+      "lora_wt_18": 1,
+      "model_str_18": 1,
+      "clip_str_18": 1,
+      "lora_name_19": "None",
+      "lora_wt_19": 1,
+      "model_str_19": 1,
+      "clip_str_19": 1,
+      "lora_name_20": "None",
+      "lora_wt_20": 1,
+      "model_str_20": 1,
+      "clip_str_20": 1,
+      "lora_name_21": "None",
+      "lora_wt_21": 1,
+      "model_str_21": 1,
+      "clip_str_21": 1,
+      "lora_name_22": "None",
+      "lora_wt_22": 1,
+      "model_str_22": 1,
+      "clip_str_22": 1,
+      "lora_name_23": "None",
+      "lora_wt_23": 1,
+      "model_str_23": 1,
+      "clip_str_23": 1,
+      "lora_name_24": "None",
+      "lora_wt_24": 1,
+      "model_str_24": 1,
+      "clip_str_24": 1,
+      "lora_name_25": "None",
+      "lora_wt_25": 1,
+      "model_str_25": 1,
+      "clip_str_25": 1,
+      "lora_name_26": "None",
+      "lora_wt_26": 1,
+      "model_str_26": 1,
+      "clip_str_26": 1,
+      "lora_name_27": "None",
+      "lora_wt_27": 1,
+      "model_str_27": 1,
+      "clip_str_27": 1,
+      "lora_name_28": "None",
+      "lora_wt_28": 1,
+      "model_str_28": 1,
+      "clip_str_28": 1,
+      "lora_name_29": "None",
+      "lora_wt_29": 1,
+      "model_str_29": 1,
+      "clip_str_29": 1,
+      "lora_name_30": "None",
+      "lora_wt_30": 1,
+      "model_str_30": 1,
+      "clip_str_30": 1,
+      "lora_name_31": "None",
+      "lora_wt_31": 1,
+      "model_str_31": 1,
+      "clip_str_31": 1,
+      "lora_name_32": "None",
+      "lora_wt_32": 1,
+      "model_str_32": 1,
+      "clip_str_32": 1,
+      "lora_name_33": "None",
+      "lora_wt_33": 1,
+      "model_str_33": 1,
+      "clip_str_33": 1,
+      "lora_name_34": "None",
+      "lora_wt_34": 1,
+      "model_str_34": 1,
+      "clip_str_34": 1,
+      "lora_name_35": "None",
+      "lora_wt_35": 1,
+      "model_str_35": 1,
+      "clip_str_35": 1,
+      "lora_name_36": "None",
+      "lora_wt_36": 1,
+      "model_str_36": 1,
+      "clip_str_36": 1,
+      "lora_name_37": "None",
+      "lora_wt_37": 1,
+      "model_str_37": 1,
+      "clip_str_37": 1,
+      "lora_name_38": "None",
+      "lora_wt_38": 1,
+      "model_str_38": 1,
+      "clip_str_38": 1,
+      "lora_name_39": "None",
+      "lora_wt_39": 1,
+      "model_str_39": 1,
+      "clip_str_39": 1,
+      "lora_name_40": "None",
+      "lora_wt_40": 1,
+      "model_str_40": 1,
+      "clip_str_40": 1,
+      "lora_name_41": "None",
+      "lora_wt_41": 1,
+      "model_str_41": 1,
+      "clip_str_41": 1,
+      "lora_name_42": "None",
+      "lora_wt_42": 1,
+      "model_str_42": 1,
+      "clip_str_42": 1,
+      "lora_name_43": "None",
+      "lora_wt_43": 1,
+      "model_str_43": 1,
+      "clip_str_43": 1,
+      "lora_name_44": "None",
+      "lora_wt_44": 1,
+      "model_str_44": 1,
+      "clip_str_44": 1,
+      "lora_name_45": "None",
+      "lora_wt_45": 1,
+      "model_str_45": 1,
+      "clip_str_45": 1,
+      "lora_name_46": "None",
+      "lora_wt_46": 1,
+      "model_str_46": 1,
+      "clip_str_46": 1,
+      "lora_name_47": "None",
+      "lora_wt_47": 1,
+      "model_str_47": 1,
+      "clip_str_47": 1,
+      "lora_name_48": "None",
+      "lora_wt_48": 1,
+      "model_str_48": 1,
+      "clip_str_48": 1,
+      "lora_name_49": "None",
+      "lora_wt_49": 1,
+      "model_str_49": 1,
+      "clip_str_49": 1
+    },
+    "class_type": "LoRA Stacker"
+  },
+  "153": {
+    "inputs": {
+      "switch_1": "On",
+      "controlnet_1": "control_v11p_sd15_openpose.pth",
+      "controlnet_strength_1": 1,
+      "start_percent_1": 0,
+      "end_percent_1": 1,
+      "switch_2": "Off",
+      "controlnet_2": "None",
+      "controlnet_strength_2": 1,
+      "start_percent_2": 0,
+      "end_percent_2": 1,
+      "switch_3": "Off",
+      "controlnet_3": "None",
+      "controlnet_strength_3": 1,
+      "start_percent_3": 0,
+      "end_percent_3": 1,
+      "image_1": [
+        "166",
+        0
+      ]
+    },
+    "class_type": "CR Multi-ControlNet Stack"
+  },
+  "159": {
+    "inputs": {
+      "from_translate": "auto",
+      "to_translate": "english",
+      "add_proxies": "disable",
+      "proxies": "",
+      "auth_data": "",
+      "service": "GoogleTranslator",
+      "text": "一个女孩，正面视角，灰色背景，光着肩膀，光着腿，坐在凳子上,室内场景,露腰",
+      "Show proxy": "proxy_hide",
+      "Show authorization": "authorization_hide"
+    },
+    "class_type": "DeepTranslatorTextNode"
+  },
+  "166": {
+    "inputs": {
+      "detect_hand": "enable",
+      "detect_body": "enable",
+      "detect_face": "enable",
+      "resolution": 512,
+      "bbox_detector": "yolox_l.onnx",
+      "pose_estimator": "dw-ll_ucoco_384.onnx",
+      "image": [
+        "42",
+        0
+      ]
+    },
+    "class_type": "DWPreprocessor"
+  },
+  "169": {
+    "inputs": {
+      "output_path": "[time(%Y-%m-%d)]",
+      "filename_prefix": "aimodel_output_final_",
+      "filename_delimiter": "_",
+      "filename_number_padding": 4,
+      "filename_number_start": "false",
+      "extension": "png",
+      "quality": 100,
+      "lossless_webp": "false",
+      "overwrite_mode": "false",
+      "show_history": "false",
+      "show_history_by_prefix": "true",
+      "embed_workflow": "true",
+      "show_previews": "true",
+      "images": [
+        "130",
+        0
+      ]
+    },
+    "class_type": "Image Save"
+  },
+  "170": {
+    "inputs": {
+      "image_path": "https://wangbo0808.oss-cn-shanghai.aliyuncs.com/aidraw/img2video_static.jpg",
+      "RGBA": "false",
+      "filename_text_extension": "false"
+    },
+    "class_type": "Image Load"
+  }
+}

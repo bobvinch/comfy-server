@@ -11,25 +11,79 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { WechatAuthService } from './wechat-auth.service';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 import { create } from 'xmlbuilder2';
 import { DrawService } from '../draw/draw.service';
 
+@ApiTags('微信相关')
 @Controller('wechatauth')
 export class WechatAuthController {
   constructor(
     private readonly wechatAuthService: WechatAuthService,
     private readonly drawService: DrawService,
   ) {}
+
   private readonly logger = new Logger(WechatAuthController.name);
 
-  @ApiProperty({})
+  @ApiOperation({
+    summary: '获取微信用户信息',
+    description: '根据服务返回的code码，获取微信用户的信息',
+    operationId: 'getUserInfo',
+    tags: ['wechat'],
+    externalDocs: {
+      description: 'wechat',
+      url: 'https://developers.weixin.qq.com/doc/offiaccount/OA_Web_Apps/Wechat_webpage_authorization.html',
+    },
+  })
   @Get('getuserinfo')
   async getUserInfo(@Query('code') code: string) {
     this.logger.log(code);
     return await this.wechatAuthService.getUserinfo(code);
   }
 
+  @ApiOperation({
+    summary: '微信登录',
+    description: '根据微信的openid unionid headimgurl nickname自动登录',
+    operationId: 'loginByOpenid',
+    tags: ['wechat'],
+    externalDocs: {
+      description: 'wechat',
+      url: 'https://developers.weixin.qq.com/doc/offiaccount/OA_Web_Apps/Wechat_webpage_authorization.html',
+    },
+    requestBody: {
+      description: 'openid unionid headimgurl nickname',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              openid: {
+                type: 'string',
+                description: 'openid',
+                example: 'o6_bmjrPTlm6_2sgVt7hMZOPfL2M',
+              },
+              unionid: {
+                type: 'string',
+                description: 'unionid',
+                example: 'o6_bjrPTlm6_2sgVt7hMZOPfL2M',
+              },
+              headimgurl: {
+                type: 'string',
+                description: '头像',
+                example:
+                  'http://thirdwx.qlogo.cn/mmopen/g3MonUZtNHkdmzicIlibx6iaFqAc56vxLSUfpb6n5WKSYVY0ChQKkiaJSgQ1dZuTOgvLLrhJbERQQ4eMsv84eavHiaiceqxibJxCfHe/46',
+              },
+              nickname: {
+                type: 'string',
+                description: '昵称',
+                example: 'Band',
+              },
+            },
+          },
+        },
+      },
+    },
+  })
   @Post('loginByOpenid')
   async loginByOpenid(
     @Body('openid') openid: string,
@@ -52,6 +106,34 @@ export class WechatAuthController {
    * @param req
    * @param res
    */
+  @ApiOperation({
+    summary: '处理微信公众号号消息',
+    description: 'xml',
+    operationId: 'hangleMessage',
+    tags: ['wechat'],
+    externalDocs: {
+      description: 'wechat',
+      url: 'https://developers.weixin.qq.com/doc/offiaccount/Message_Management/Receiving_standard_messages.html',
+    },
+    requestBody: {
+      description: 'xml',
+      content: {
+        'application/xml': {
+          schema: {
+            type: 'object',
+            properties: {
+              xml: {
+                type: 'string',
+                description: 'xml',
+                example:
+                  '<?xml version="1.0" encoding="UTF-8"?><xml><ToUserName><![CDATA[gh_e134659f803f]]></ToUserName><FromUserName><![CDATA[oMgHVjngRipC2slb2Y5u06jzNzK8]]></FromUserName><CreateTime>1582404543</CreateTime><MsgType><![CDATA[text]]></MsgType><Content><![CDATA[123]]></Content><MsgId>2250878104354478081</MsgId></xml>',
+              },
+            },
+          },
+        },
+      },
+    },
+  })
   @HttpCode(200)
   @Post('handleMessage')
   async hangleMessage(
@@ -112,6 +194,16 @@ export class WechatAuthController {
    * @param nonce
    * @param echostr
    */
+  @ApiOperation({
+    summary: '对接服务器验证',
+    description: '自动对接微信服务器设置，微信服务器配置时，请选择明文模式',
+    operationId: 'handleMessage',
+    tags: ['wechat'],
+    externalDocs: {
+      description: 'wechat',
+      url: 'https://developers.weixin.qq.com/doc/offiaccount/Basic_Information/Access_Overview.html',
+    },
+  })
   @Get('handleMessage')
   receiveMessage(
     @Query('signature') signature: string,

@@ -22,6 +22,7 @@ export class WsGateway implements OnGatewayInit, OnGatewayConnection {
   private readonly logger = new Logger(WsGateway.name);
 
   afterInit(server: any) {
+    this.logger.log(`WebSocket server started on port ${server}`);
     WsGateway.server = server;
   }
 

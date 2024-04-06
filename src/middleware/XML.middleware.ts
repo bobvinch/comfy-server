@@ -1,6 +1,11 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { NextFunction, Request, Response } from 'express';
 import { parseString } from 'xml2js';
+
+/**
+ * XML 中间件,微信消息前置处理为json
+ *
+ */
 @Injectable()
 export class XMLMiddleware implements NestMiddleware {
   async use(req: Request, res: Response, next: NextFunction) {

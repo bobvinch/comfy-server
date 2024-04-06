@@ -12,8 +12,6 @@ import { ConfigModule } from '@nestjs/config';
 
 //链接mongodb
 import { MongooseModule } from '@nestjs/mongoose';
-import { DrawhistoryModule } from './drawhistory/drawhistory.module';
-import { AimodelsModule } from './aimodels/aimodels.module';
 
 //链接mysql
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -37,7 +35,7 @@ import { DrawModule } from './draw/draw.module';
     //OneAPI数据库,如果不启动ONEAPI的大模型，删除此处的模块引入和oneapi模块
     TypeOrmModule.forRoot({
       type: 'mysql',
-      host: '47.116.212.183',
+      host: new ConfigService().get('ONEAPI_MYSQL_HOST'),
       port: 3306,
       username: new ConfigService().get('ONEAPI_MYSQL_USERNAME'),
       password: new ConfigService().get('ONEAPI_MYSQL_PASSWORD'),
@@ -54,16 +52,17 @@ import { DrawModule } from './draw/draw.module';
     }),
 
     WechatAuthModule,
-    DrawhistoryModule,
-    AimodelsModule,
     UsersModule,
     TokensModule,
     DrawModule,
     ConfigModule,
   ],
   controllers: [AppController],
-  providers: [AppService, WsGateway, DrawConsumer, DrawhistoryModule],
+  providers: [AppService, WsGateway, DrawConsumer],
 })
+/**
+ * 注册中间件
+ */
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(XMLMiddleware).forRoutes({

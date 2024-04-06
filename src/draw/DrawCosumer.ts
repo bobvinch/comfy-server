@@ -6,110 +6,65 @@ import {
 } from '@nestjs/bull';
 import { Job } from 'bull';
 import { WsGateway } from 'src/ws/ws.gateway';
-import WebSocket = require('ws'); // 导入WebSocket模块
 import { Logger } from '@nestjs/common';
-import { DrawhistoryService } from 'src/drawhistory/drawhistory.service';
 import { ConfigService } from '@nestjs/config/dist';
 import { DrawService, DrawTask } from './draw.service';
 import { WechatAuthService } from '../wechat-auth/wechat-auth.service';
 import { AppService } from '../app.service';
-
-interface ComfyAPIType {
-  type:
-    | '文生图'
-    | '图生图'
-    | 'AI模特'
-    | 'AI写真'
-    | '放大1'
-    | '放大2'
-    | 'AI推文';
-  timeout: number;
-}
-
-const APIS = [
-  {
-    type: '文生图',
-    timeout: 10,
-  },
-  {
-    type: '图生图',
-    timeout: 10,
-  },
-  {
-    type: 'AI模特',
-    timeout: 120,
-  },
-  {
-    type: 'AI写真',
-    timeout: 240,
-  },
-  {
-    type: '放大1',
-    timeout: 120,
-  },
-  {
-    type: '放大2',
-    timeout: 180,
-  },
-] as ComfyAPIType[];
+import Websocket = require('ws');
 
 @Processor('draw')
 export class DrawConsumer {
   constructor(
-    private readonly drawHistory: DrawhistoryService,
     private readonly drawService: DrawService,
     private readonly wsGateway: WsGateway,
     private readonly configService: ConfigService,
     private readonly wechatauthService: WechatAuthService,
     private readonly appSevice: AppService,
-  ) {}
+  ) {
+    this.websocketInit();
+  }
 
   private readonly logger = new Logger(DrawConsumer.name);
   private readonly clientId = 'admin9527'; //id可以随意
-  public static ws_client: WebSocket;
+  public ws_client: Websocket;
 
   @Process('text2img')
-  async text2img(job: Job) {
-    this.logger.debug('Processing', job.id, 'for', 'seconds');
-    const { api } = job.data;
-    this.logger.debug(api);
-    // const defaultimeout = APIS.find((item) => item.type === api)?.timeout || 30;
-    // this.logger.debug(defaultimeout);
-    // // 绘画任务
-    // await this.drawTaskExcu(job.data, defaultimeout);
-    // //广播给所有人排队情况
-    // const message = {
-    //   type: 'receive',
-    //   queue_remaining: await this.drawService.getQueueLength(),
-    // };
-    // WsGateway.server.emit('message', JSON.stringify(message));
-    this.logger.debug('Processing done', job.id);
+  async text2img(job: Job): Promise<string> {
+    // const output = await this.testTask(); //测试
+    // 绘画任务
+    const output = await this.drawTaskExcu(job.data);
+    this.logger.debug(`任务完成，${job.id}`);
+    //广播给所有人排队情况
+    const message = {
+      type: 'receive',
+      queue_remaining: await this.drawService.getQueueLength(),
+    };
+    WsGateway.server.emit('message', JSON.stringify(message));
+    return output + '';
   }
 
   /**
    *
    * @param data
-   * @param timeout 超时时间，秒
    */
-  async drawTaskExcu(data: DrawTask, timeout: number) {
-    let socket = '';
-    const p1 = new Promise(async (resolve) => {
+  async drawTaskExcu(data: DrawTask) {
+    return new Promise(async (resolve, reject) => {
       //client_id为用户id
       await this.websocketInit();
       const { source, client_id, prompt, socket_id } = data;
-      socket = socket_id;
       const params = {
-        client_id: 'admin9527', //固定值
+        client_id: this.clientId, //固定值
         prompt: prompt,
       };
-      this.logger.debug(`发生绘画任务成功`);
-
-      this.drawService.sendTackprompt(params).then((sendres: any) => {
+      const response = await this.drawService.sendTackprompt(params);
+      this.logger.debug(`发送绘画任务后的响应${response}`);
+      if (response) {
         //监听服务器消息
-        DrawConsumer.ws_client.onmessage = async (event: any) => {
+        this.logger.debug(`发送绘画任务成功`);
+        this.ws_client.onmessage = async (event: any) => {
           //转发
           this.logger.debug(event.data);
-
           //如果存在并且socket处于连接状态
           const target_socket =
             WsGateway.server.sockets?.sockets?.get(socket_id);
@@ -120,33 +75,75 @@ export class DrawConsumer {
           try {
             const { type } = JSON.parse(event.data + '');
             if (type === 'executed') {
+              // 解析视频
+              const {
+                data: {
+                  output: { gifs },
+                },
+              } = JSON.parse(event.data + '');
+              if (gifs && gifs[0]?.filename.includes('final')) {
+                let videoUrl = '';
+                //如果是微信消息
+                const { filename, subfolder, type } = gifs[0];
+                if (subfolder) {
+                  videoUrl =
+                    this.drawService.webSocketSeverUrl +
+                    '/view?subfolder=' +
+                    subfolder +
+                    '&filename=' +
+                    filename +
+                    '&type=' +
+                    type;
+                } else {
+                  videoUrl =
+                    this.drawService.webSocketSeverUrl +
+                    '/view?filename=' +
+                    filename +
+                    '&type=' +
+                    type;
+                }
+                // 微信公众号回复
+                if (source === 'wechat') {
+                  const mediaId =
+                    await this.wechatauthService.getMediaId(videoUrl);
+                  await this.wechatauthService.sendServiceImageMessge(
+                    mediaId,
+                    client_id,
+                  );
+                }
+                resolve(videoUrl);
+              }
+
+              // 解析图片
               const {
                 data: {
                   output: { images },
                 },
               } = JSON.parse(event.data + '');
               if (images && images[0]?.filename.includes('final')) {
+                let imageUrl = '';
+                //如果是微信消息
+                const { filename, subfolder, type } = images[0];
+
+                if (subfolder) {
+                  imageUrl =
+                    this.drawService.webSocketSeverUrl +
+                    '/view?subfolder=' +
+                    subfolder +
+                    '&filename=' +
+                    filename +
+                    '&type=' +
+                    type;
+                } else {
+                  imageUrl =
+                    this.drawService.webSocketSeverUrl +
+                    '/view?filename=' +
+                    filename +
+                    '&type=' +
+                    type;
+                }
+                // 微信公众号回复
                 if (source === 'wechat') {
-                  //如果是微信消息
-                  const { filename, subfolder, type } = images[0];
-                  let imageUrl = '';
-                  if (subfolder) {
-                    imageUrl =
-                      this.drawService.webSocketSeverUrl +
-                      '/view?subfolder=' +
-                      subfolder +
-                      '&filename=' +
-                      filename +
-                      '&type=' +
-                      type;
-                  } else {
-                    imageUrl =
-                      this.drawService.webSocketSeverUrl +
-                      '/view?filename=' +
-                      filename +
-                      '&type=' +
-                      type;
-                  }
                   const mediaId =
                     await this.wechatauthService.getMediaId(imageUrl);
                   await this.wechatauthService.sendServiceImageMessge(
@@ -154,53 +151,21 @@ export class DrawConsumer {
                     client_id,
                   );
                 }
-                //保存到数据库
-                if (this.appSevice.Draw_SaveHistory) {
-                  const drawhistory = {
-                    user_id: client_id,
-                    prompt_id: sendres.prompt_id,
-                    draw_api: prompt,
-                    filename: images[0]?.filename,
-                    status: true,
-                  };
-                  //保存到数据库
-                  this.drawHistory
-                    .create(drawhistory)
-                    .catch((err) => {
-                      this.logger.error(err);
-                    })
-                    .finally(() => {
-                      this.logger.log('保存到数据成功了');
-                    });
-                }
-                this.logger.log('绘画任务最终完成');
-                resolve('绘画任务最终完成');
+                resolve(imageUrl);
+              }
+              //保存到数据库
+              if (this.appSevice.Draw_SaveHistory) {
+                //   todo 保存到数据库
               }
             }
           } catch (e) {
-            this.wsGateway.sendSystemMessage(
-              socket,
-              '绘画任务执行异常，请重试',
-            );
             this.logger.error(e);
           }
         };
-      });
+      } else {
+        reject({ status: 'error', data });
+      }
     });
-    const p2 = new Promise((resolve, reject) => {
-      setTimeout(() => {
-        reject('Error.timeout……');
-      }, timeout * 1000);
-    });
-
-    return Promise.race([p1, p2])
-      .then(() => {
-        this.logger.log('绘图任务执行完成');
-      })
-      .catch(() => {
-        this.wsGateway.sendSystemMessage(socket, '绘画任务执行异常，请重试');
-        this.logger.error('绘图任务执行异常');
-      });
   }
 
   /**
@@ -208,11 +173,14 @@ export class DrawConsumer {
    */
   async websocketInit() {
     if (!this.validateWsconnect()) {
-      this.logger.debug('链接不存在，重新链接');
-      DrawConsumer.ws_client = new WebSocket(
-        `${this.configService.get('CONFIG_COMFYUI_WS_SERVER_URL')}/ws?clientId=` +
-          this.clientId,
+      this.ws_client = new Websocket(
+        `${this.configService.get('CONFIG_COMFYUI_WS_SERVER_URL')}/ws?clientId=${this.clientId}`,
       );
+      this.ws_client.onopen = () => {
+        this.logger.debug('链接成功,链接状态：', this.ws_client.readyState);
+      };
+      return this.ws_client.readyState === 1;
+
     }
   }
 
@@ -220,16 +188,11 @@ export class DrawConsumer {
    * 验证链接状态
    */
   validateWsconnect() {
-    if (
-      DrawConsumer.ws_client === undefined ||
-      DrawConsumer.ws_client.readyState != 1
-    ) {
+    if (this.ws_client === undefined || this.ws_client.readyState != 1) {
+      this.logger.error('链接不存在,尝试重新连接');
       return false;
     } else {
-      DrawConsumer.ws_client.ping('', true, (e: any) => {
-        this.logger.debug('当前的链接状态是否存在错误：', e);
-        return !e;
-      });
+      return true;
     }
   }
 
@@ -237,9 +200,11 @@ export class DrawConsumer {
   async onActive(job: Job) {
     const remain = await this.drawService.getQueueLength();
     //广播队列任务信息
-    WsGateway.server.sockets?.emit('remain', { remain });
+    WsGateway.server.sockets?.emit('remain', {
+      remain,
+    });
     this.logger.debug(
-      `onActive job ${job.id} of type ${job.name} with data ${job.data}...队长：`,
+      `onActive job ${job.id} of type ${job.name} with data ${job.data}...队列：：`,
       remain,
     );
   }
@@ -249,5 +214,13 @@ export class DrawConsumer {
     console.log(
       `Processing job ${job.id} of type ${job.name} with data ${job.data}...starting`,
     );
+  }
+
+  private async testTask() {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve('ok');
+      }, 3000);
+    });
   }
 }

@@ -1,0 +1,174 @@
+{
+  "8": {
+    "inputs": {
+      "width": [
+        "36",
+        2
+      ],
+      "height": [
+        "36",
+        1
+      ],
+      "video_frames": 14,
+      "motion_bucket_id": 127,
+      "fps": 6,
+      "augmentation_level": 0,
+      "clip_vision": [
+        "35",
+        3
+      ],
+      "init_image": [
+        "37",
+        0
+      ],
+      "vae": [
+        "35",
+        2
+      ]
+    },
+    "class_type": "SVD_img2vid_Conditioning",
+    "_meta": {
+      "title": "SVD_图像到视频_条件"
+    }
+  },
+  "10": {
+    "inputs": {
+      "image": "u=1090338134,2696420997&fm=253&fmt=auto&app=138&f=JPEG (3).webp",
+      "upload": "image"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像"
+    }
+  },
+  "18": {
+    "inputs": {
+      "min_cfg": 1,
+      "model": [
+        "35",
+        0
+      ]
+    },
+    "class_type": "VideoLinearCFGGuidance",
+    "_meta": {
+      "title": "线性CFG引导"
+    }
+  },
+  "19": {
+    "inputs": {
+      "seed": 526114517786088,
+      "steps": 20,
+      "cfg": 3,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "denoise": 1,
+      "model": [
+        "18",
+        0
+      ],
+      "positive": [
+        "8",
+        0
+      ],
+      "negative": [
+        "8",
+        1
+      ],
+      "latent_image": [
+        "8",
+        2
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "K采样器"
+    }
+  },
+  "20": {
+    "inputs": {
+      "samples": [
+        "19",
+        0
+      ],
+      "vae": [
+        "35",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码"
+    }
+  },
+  "23": {
+    "inputs": {
+      "frame_rate": 8,
+      "loop_count": 0,
+      "filename_prefix": "img2video_output_final_",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "pingpong": false,
+      "save_output": true,
+      "images": [
+        "24",
+        0
+      ]
+    },
+    "class_type": "VHS_VideoCombine",
+    "_meta": {
+      "title": "合并为视频"
+    }
+  },
+  "24": {
+    "inputs": {
+      "ckpt_name": "rife47.pth",
+      "clear_cache_after_n_frames": 10,
+      "multiplier": 2,
+      "fast_mode": true,
+      "ensemble": true,
+      "scale_factor": 1,
+      "frames": [
+        "20",
+        0
+      ]
+    },
+    "class_type": "RIFE VFI",
+    "_meta": {
+      "title": "RIFE VFI"
+    }
+  },
+  "35": {
+    "inputs": {
+      "ckpt_name": "svd-fp16.safetensors"
+    },
+    "class_type": "unCLIPCheckpointLoader",
+    "_meta": {
+      "title": "unCLIPCheckpoint加载器"
+    }
+  },
+  "36": {
+    "inputs": {
+      "value": [
+        "37",
+        0
+      ]
+    },
+    "class_type": "ImpactImageInfo",
+    "_meta": {
+      "title": "图像信息"
+    }
+  },
+  "37": {
+    "inputs": {
+      "image_path": "./ComfyUI/input/example.png",
+      "RGBA": "false",
+      "filename_text_extension": "true"
+    },
+    "class_type": "Image Load",
+    "_meta": {
+      "title": "图像加载"
+    }
+  }
+}
