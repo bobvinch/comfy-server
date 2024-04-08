@@ -11,9 +11,10 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { WechatAuthService } from './wechat-auth.service';
-import { ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { create } from 'xmlbuilder2';
 import { DrawService } from '../draw/draw.service';
+import { UsersService } from '../users/users.service';
 
 @ApiTags('微信相关')
 @Controller('wechatauth')
@@ -21,6 +22,7 @@ export class WechatAuthController {
   constructor(
     private readonly wechatAuthService: WechatAuthService,
     private readonly drawService: DrawService,
+    private readonly usersService: UsersService,
   ) {}
 
   private readonly logger = new Logger(WechatAuthController.name);
@@ -92,12 +94,27 @@ export class WechatAuthController {
     @Body('nickname') nickname: string,
   ) {
     console.log('openid unionid' + openid + unionid);
-    return await this.wechatAuthService.loginByOpenid(
-      openid,
-      unionid,
-      headimgurl,
-      nickname,
-    );
+    const user = await this.usersService.loginBywechat({
+      wx_openid: openid,
+      wx_unionid: unionid,
+      nickname: nickname,
+      avatar_url: headimgurl,
+      email: '',
+      inviter_uid: '',
+      last_login_date: Date.now(),
+      last_login_ip: '',
+      mobile: '',
+      my_invite_code: '',
+      password: await this.usersService.hashPassword('123456'),
+      register_date: 0,
+      role: undefined,
+      token: '',
+      username: `wechat_${openid}`,
+    });
+    const { _id, username } = user;
+    //更新toekn
+    await this.usersService.updateToken(_id, username);
+    return user;
   }
 
   /**

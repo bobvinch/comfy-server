@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config/dist';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { DrawService } from '../draw/draw.service';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class WechatAuthService {
@@ -18,13 +19,14 @@ export class WechatAuthService {
   private APPID = this.configService.get('CONFIG_AUTH_WECHAT_APPID');
   private SECRET = this.configService.get('CONFIG_AUTH_WECHAT_SECRET');
   private wx_baseurl = 'https://api.weixin.qq.com';
-  private uni_baseurl = 'https://unicloudapi.gptpro.ink'; //小程序账号登录链接
+
+  // private uni_baseurl = 'https://unicloudapi.gptpro.ink'; //小程序账号登录链接
   /**
    *获取Access_token
    * @param code 用户扫码后获取到的code
    * @returns 返回相应结果，{"access_token":"ACCESS_TOKEN","expires_in":7200,"refresh_token":"REFRESH_TOKEN","openid":"OPENID","scope":"SCOPE","unionid": "UNIONID"}
    */
-  async getAccess_token(code) {
+  private async getAccess_token(code) {
     const access_url =
       'https://api.weixin.qq.com/sns/oauth2/access_token?appid=' +
       this.APPID +
@@ -61,50 +63,6 @@ export class WechatAuthService {
     return 'Error';
   }
 
-  //根据openid登录，如果是此一次登录则注册
-  async loginByOpenid(
-    openid: string,
-    unionid: string,
-    headimgurl: string,
-    nickname: string,
-  ) {
-    //1.根据unionid查找是否注册过
-    const url = this.uni_baseurl + '/aichat/getUserinfoByUnionid';
-    const data = {
-      openid: openid,
-      unionid: unionid,
-      my_invite_code: nanoid(6),
-      headimgurl: headimgurl,
-      nickname: nickname,
-    };
-    const res = await axios.post(url, data);
-    if (res.data && res.data.length > 0) {
-      //注册过，返回整个user集合
-      console.log('注册过：' + res.data[0]);
-      //把web的openid写入到数据库中
-      const data2 = {
-        _id: res.data[0]._id,
-        openid: openid,
-        headimgurl: headimgurl,
-        nickname: nickname,
-      };
-      const addWebOpenid_url = this.uni_baseurl + '/aichat/addWebOpenid';
-      await axios.post(addWebOpenid_url, data2);
-      return res.data[0];
-    } else {
-      //注册,openid要存在才注册，防止在code页面刷新，openid不存在
-      if (openid) {
-        const reg_url = this.uni_baseurl + '/aichat/addUserinfoByOpenid';
-        const reg_res = await axios.post(reg_url, data);
-        console.log('新注册');
-        console.log(reg_res.data);
-        return reg_res.data[0];
-      }
-    }
-
-    return res.data;
-  }
-
   /**
    * 上传图片文件作为临时素材，获取微信服务器的media_id
    * @param imageUrl
@@ -126,6 +84,7 @@ export class WechatAuthService {
     const { media_id } = res.data;
     return media_id || '';
   }
+
   private draw_access_token = {
     token: '',
     expires_in: Date.now(),
@@ -158,6 +117,7 @@ export class WechatAuthService {
       return this.draw_access_token.token;
     }
   }
+
   /**
    * 将url转换成file
    * @param url 图片链接

@@ -7,29 +7,27 @@ import {
   Param,
   Delete,
 } from '@nestjs/common';
-import { UsersService } from './users.service';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { OneAPIUsersService } from './users.service';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { OneAPIUser } from './user.entity';
 
-@ApiTags('User')
-@Controller('users')
+@ApiTags('OneAPI')
+@Controller('oneapi/users')
 export class UsersController {
-  constructor(private readonly userService: UsersService) {
-  }
+  constructor(private readonly oneAPIUsersService: OneAPIUsersService) {}
 
   @Post()
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.userService.create(createUserDto);
+  create(@Body() user: OneAPIUser) {
+    return this.oneAPIUsersService.create(user);
   }
 
   @ApiOperation({
-    summary: '根据微信uniId传建用户，如果存在则直接返回，没有就重新创建',
-    description: 'Get user by uniId',
+    summary: '创建ONEAPI用户',
+    description: '根据微信uniId传建用户，如果存在则直接返回，没有就重新创建',
   })
   @Post('creatbyuniId')
-  async CreateByUniId(@Body() createUserDto: CreateUserDto) {
-    return await this.userService.CreateByUniId(createUserDto);
+  async CreateByUniId(@Body() user: OneAPIUser) {
+    return await this.oneAPIUsersService.CreateByUniId(user);
   }
 
   @ApiOperation({
@@ -38,7 +36,7 @@ export class UsersController {
   })
   @Get()
   findAll() {
-    return this.userService.findAll();
+    return this.oneAPIUsersService.findAll();
   }
 
   @ApiOperation({
@@ -47,7 +45,7 @@ export class UsersController {
   })
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.userService.findOne(+id);
+    return this.oneAPIUsersService.findOne(+id);
   }
 
   @ApiOperation({
@@ -55,8 +53,8 @@ export class UsersController {
     description: 'Update user by id',
   })
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.userService.update(+id, updateUserDto);
+  update(@Param('id') id: string, @Body() user: OneAPIUser) {
+    return this.oneAPIUsersService.update(+id, user);
   }
 
   @ApiOperation({
@@ -65,6 +63,6 @@ export class UsersController {
   })
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return this.userService.remove(+id);
+    return this.oneAPIUsersService.remove(+id);
   }
 }

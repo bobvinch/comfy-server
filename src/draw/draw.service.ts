@@ -1,29 +1,28 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger,UnauthorizedException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { ConfigService } from '@nestjs/config/dist';
 import axios from 'axios';
 // 普通文生图
-import text2img_1 from './data/workflow_api_text2img.json';
-const text2img = require('./data/workflow_api_text2img.json');
+
+import { text2img } from './data/workflow_api_text2img';
 // 图生图
-import image2img_1 from './data/workflow_api_image2img.json';
-const image2img = require('./data/workflow_api_image2img.json');
+import { image2img } from './data/workflow_api_image2img';
+
 // 图生视频
-import img2video_1 from './data/workflow_api_img2video.json';
-const img2video = require('./data/workflow_api_img2video.json');
+import { img2video } from './data/workflow_api_img2video';
 // 绘画参数
 import objectInfo_1 from './data/objectInfo.json';
+
 const objectInfo = require('./data/objectInfo.json');
 // 抠图
-import matting_1 from './data/workflow_api_matting.json';
-const matting = require('./data/workflow_api_matting.json');
+import { matting } from './data/workflow_api_matting';
 // 局部重绘
-import inpainting_1 from './data/workflow_api_inpainting.json';
-const inpainting = require('./data/workflow_api_inpainting.json');
+import { inpainting } from './data/workflow_api_inpainting';
 // 移除背景
-import removebg_1 from './data/workflow_api_removebg.json';
-const removebg = require('./data/workflow_api_removebg.json');
+import { removebg } from './data/workflow_api_removebg';
+import { CacheService } from '../cache/cache.service';
+import { WsGateway } from '../ws/ws.gateway';
 
 export interface DrawTask {
   source: 'wechat' | 'web';
@@ -31,6 +30,7 @@ export interface DrawTask {
   prompt: any;
   api: string;
   socket_id?: string;
+  lifo?: boolean;
 }
 
 interface ComfyAPIType {
@@ -84,34 +84,49 @@ export class DrawService {
   private ckpt_names = [] as any[]; //模型集合
   constructor(
     @InjectQueue('draw') private drawQueue: Queue,
-    private readonly configService: ConfigService,
+    private readonly cacheService: CacheService,
+    private readonly wsGateway: WsGateway,
   ) {
     this.Initalize();
   }
 
-  public webSocketSeverUrl = this.configService.get(
-    'CONFIG_COMFYUI_HTTP_SERVER_URL',
-  );
   private readonly comfyuiAxios = axios.create({
     // baseURL: "/sdApi",
-    baseURL: this.webSocketSeverUrl,
     timeout: 100000,
     headers: {
       'Access-Control-Allow-Origin': '*',
       Accept: '*/*',
     },
   });
+  private count = 1;
 
   /**
    * 讲绘画任务加入到任务队列
    * @param data
    */
   async sendToQueue(data: DrawTask) {
-    return await this.drawQueue.add('text2img', data, {
-      timeout:
-        APIS.find((item) => item.type === data.api)?.timeout * 1000 ||
-        60 * 1000,
-    });
+    // 黑名单管理
+    if (await this.isInBlackList(data.client_id)) {
+      this.wsGateway.sendSystemMessage(data.socket_id, '你已经被加入黑名单');
+      return new UnauthorizedException('你已经被加入黑名单');
+    }
+    // 负载均衡
+    this.count++;
+    if (this.count % 2 === 0) {
+      return await this.drawQueue.add('cosumer_1', data, {
+        timeout:
+          APIS.find((item) => item.type === data.api)?.timeout * 1000 ||
+          60 * 1000,
+        lifo: data.lifo || false,
+      });
+    } else {
+      return await this.drawQueue.add('cosumer_2', data, {
+        timeout:
+          APIS.find((item) => item.type === data.api)?.timeout * 1000 ||
+          60 * 1000,
+        lifo: data.lifo || false,
+      });
+    }
   }
 
   /**
@@ -158,13 +173,14 @@ export class DrawService {
 
   /**
    * 返送任务到ComfyUI服务器
+   * @param comfyuihttpUrl
    * @param data
    */
-  async sendTackprompt(data: any): Promise<string | undefined | any> {
+  async sendTackprompt(comfyuihttpUrl: string, data: any): Promise<any> {
     try {
       const {
         data: { prompt_id },
-      } = await this.comfyuiAxios.post('/prompt', data);
+      } = await this.comfyuiAxios.post(comfyuihttpUrl + '/prompt', data);
       return prompt_id;
       // console.log('res', res);
     } catch (error) {
@@ -178,61 +194,21 @@ export class DrawService {
    * @param client_id 用户id openid,微信用户唯一标识
    */
   async wechatText2img(positive: string, client_id: string) {
-    const APIdata = require('./data/text2imgapi.json');
-    APIdata[24].inputs.text = positive;
-    APIdata[32].inputs.noise_seed = this.getSeed(15);
-    APIdata[47].inputs.ckpt_name = this.ckpt_names[0]; //随机重绘幅度
-    const data = {
-      source: 'wechat',
-      prompt: APIdata,
-      api: '文生图',
+    return await this.text2img(
       client_id,
-    } as DrawTask;
-    return await this.sendToQueue(data);
+      undefined,
+      { positive },
+      { source: 'wechat' },
+    );
   }
 
   async wechatImage2img(iamgeUrl: string, client_id: string) {
-    const APIdata = require('./data/api_wechat_img2imgi.json');
-    APIdata[70].inputs.image_path = iamgeUrl;
-    APIdata[85].inputs.denoise = Math.random(); //随机重绘幅度
-    APIdata[85].inputs.noise_seed = this.getSeed(15);
-    //随机风格
-    const fix_style = [
-      {
-        lora: 'lcm\\lcm_sd1.5_pytorch_lora_weights.safetensors', //LCM
-        weight: 1,
-      },
-      {
-        lora: 'styles\\add_detail.safetensors', //增加图片细节
-        weight: 0.8,
-      },
-    ];
-    // const random_style = [
-    //   {
-    //     lora: 'styles\\3DMM_V12.safetensors', //3D效果
-    //     weight: 0,
-    //   },
-    //   {
-    //     lora: 'styles\\MoXinV1.safetensors',
-    //     weight: 0,
-    //   },
-    //   {
-    //     lora: 'FilmVelvia3.safetensors',
-    //     weight: 0,
-    //   },
-    // ];
-    //设置固定风格lora
-    fix_style.forEach((style, index) => {
-      APIdata[45].inputs[`lora_name_${index + 1}`] = style.lora;
-      APIdata[45].inputs[`lora_wt_${index + 1}`] = style.weight;
-    });
-    const data = {
-      source: 'wechat',
-      prompt: APIdata,
-      api: '图生图',
+    return await this.image2img(
       client_id,
-    } as DrawTask;
-    return await this.sendToQueue(data);
+      undefined,
+      { image_path: iamgeUrl },
+      { source: 'wechat' },
+    );
   }
 
   /**
@@ -250,6 +226,7 @@ export class DrawService {
    * @param client_id
    * @param socket_id
    * @param params
+   * @param options
    */
   async text2img(
     client_id: string,
@@ -263,6 +240,10 @@ export class DrawService {
       ckpt_name_id?: number;
       filename_prefix?: string | number; //文件名前缀
       upscale_by?: number;
+    },
+    options?: {
+      source: 'web' | 'wechat';
+      lifo?: boolean;
     },
   ) {
     //正向提示词
@@ -281,11 +262,12 @@ export class DrawService {
     // 放大倍数
     text2img[44].inputs.upscale_by = params.upscale_by || 1;
     const data = {
-      source: 'web',
+      source: options?.source || 'web',
       prompt: text2img,
       api: '文生图',
       client_id,
       socket_id,
+      lifo: options?.lifo || false,
     } as DrawTask;
     const result = await this.submitDrawTask(data);
     this.logger.log('文生图结果', result);
@@ -307,24 +289,28 @@ export class DrawService {
       filename_prefix?: string | number; //文件名前缀
       upscale_by?: number;
     },
+    options?: {
+      source: 'web' | 'wechat';
+      lifo?: boolean;
+    },
   ) {
     //图片路径
     image2img[70].inputs.image_path = params.image_path;
     image2img[85].inputs.denoise = params.denoise || 0.5;
-    image2img[85].inputs.noise_seed = params.noise_seed || this.getSeed(15);
-    if (params.upscale_by) {
-      image2img[74].inputs.scale_by = params.upscale_by;
-    }
-
+    image2img[85].inputs.seed = params.noise_seed || this.getSeed(15);
+    // if (params.upscale_by) {
+    //   image2img[74].inputs.scale_by = params.upscale_by;
+    // }
     image2img[92].inputs.ckpt_name = this.ckpt_names[params.ckpt_name_id || 0];
     image2img[51].inputs.filename_prefix =
       params.filename_prefix + '_image2img_output_final_';
     const data = {
-      source: 'web',
+      source: options?.source || 'web',
       prompt: image2img,
       api: '图生图',
       client_id,
       socket_id,
+      lifo: options?.lifo || false,
     } as DrawTask;
     return await this.submitDrawTask(data);
   }
@@ -334,6 +320,7 @@ export class DrawService {
    * @param client_id
    * @param socket_id
    * @param params
+   * @param options
    */
   async image2video(
     client_id: string,
@@ -348,6 +335,10 @@ export class DrawService {
       cfg?: number;
       steps?: number;
       min_cfg?: 1;
+    },
+    options?: {
+      source: 'web' | 'wechat';
+      lifo?: boolean;
     },
   ) {
     //图片路径
@@ -365,11 +356,12 @@ export class DrawService {
     img2video[23].inputs.frame_rate = params.fps || 8;
     img2video[18].inputs.min_cfg = params.min_cfg || 1;
     const data = {
-      source: 'web',
+      source: options?.source || 'web',
       prompt: img2video,
       api: '图生视频',
       client_id,
       socket_id,
+      lifo: options?.lifo || false,
     } as DrawTask;
     return await this.submitDrawTask(data);
   }
@@ -379,6 +371,7 @@ export class DrawService {
    * @param client_id
    * @param params
    * @param socket_id
+   * @param options
    */
   async segmentAnything(
     client_id: string,
@@ -387,15 +380,20 @@ export class DrawService {
       segmentparts: string;
     },
     socket_id?: string,
+    options?: {
+      source: 'web' | 'wechat';
+      lifo?: boolean;
+    },
   ) {
     matting[67].inputs.text = params.segmentparts;
     matting[62].inputs.image_path = params.image_path;
     const data = {
-      source: 'web',
+      source: options?.source || 'web',
       prompt: matting,
       api: '抠图',
       client_id,
       socket_id,
+      lifo: options?.lifo || false,
     } as DrawTask;
     return await this.submitDrawTask(data);
   }
@@ -405,6 +403,7 @@ export class DrawService {
    * @param client_id
    * @param params
    * @param socket_id
+   * @param options
    */
   async inpainting(
     client_id: string,
@@ -417,6 +416,10 @@ export class DrawService {
       nagative?: string;
     },
     socket_id?: string,
+    options?: {
+      source: 'web' | 'wechat';
+      lifo?: boolean;
+    },
   ) {
     inpainting[70].inputs.image_path = params.image_path;
     inpainting[87].inputs.image_path = params.image_path_mask;
@@ -425,11 +428,12 @@ export class DrawService {
     inpainting[95].inputs.text = params.positive || '';
     inpainting[95].inputs.text = params.nagative || '';
     const data = {
-      source: 'web',
+      source: options?.source || 'web',
       prompt: inpainting,
       api: '局部重绘',
       client_id,
       socket_id,
+      lifo: options?.lifo || false,
     } as DrawTask;
     return await this.submitDrawTask(data);
   }
@@ -439,6 +443,7 @@ export class DrawService {
    * @param client_id
    * @param params
    * @param socket_id
+   * @param options
    */
   async removebg(
     client_id: string,
@@ -446,15 +451,20 @@ export class DrawService {
       image_path: string;
     },
     socket_id?: string,
+    options?: {
+      source: 'web' | 'wechat';
+      lifo?: boolean;
+    },
   ) {
     removebg[62].inputs.image_path = params.image_path;
 
     const data = {
-      source: 'web',
+      source: options?.source || 'web',
       prompt: removebg,
       api: '移除背景',
       client_id,
       socket_id,
+      lifo: options?.lifo || false,
     } as DrawTask;
     return await this.submitDrawTask(data);
   }
@@ -472,4 +482,40 @@ export class DrawService {
         objectInfo['CheckpointLoaderSimple'].input.required.ckpt_name[0];
     }
   };
+  /**
+   * 加入黑名单
+   */
+  async addBlackList(uid: string) {
+    const blacklist = (await this.cacheService.get('blacklist')) || [];
+    if (blacklist.includes(uid)) {
+      return;
+    }
+    blacklist.push(uid);
+    await this.cacheService.set('blacklist', blacklist);
+  }
+
+  /**
+   * 判断是否再黑名单
+   */
+  async isInBlackList(uid: string) {
+    const blacklist = (await this.cacheService.get('blacklist')) || [];
+    return blacklist.includes(uid);
+  }
+
+  /**
+   * 移除黑名单
+   */
+  async removeBlackList(uid: string) {
+    let blacklist = await this.cacheService.get('blacklist');
+    if (!blacklist) return;
+    blacklist = blacklist.filter((item) => item !== uid);
+    await this.cacheService.set('blacklist', blacklist);
+  }
+
+  /**
+   * 获取黑名单
+   */
+  async getBlackList() {
+    return await this.cacheService.get('blacklist');
+  }
 }

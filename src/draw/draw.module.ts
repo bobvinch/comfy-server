@@ -3,27 +3,28 @@ import { DrawService } from './draw.service';
 import { DrawController } from './draw.controller';
 import { BullModule } from '@nestjs/bull';
 import { ConfigService } from '@nestjs/config/dist';
-import { ConfigModule } from '@nestjs/config';
+import { CacheModule } from '../cache/cache.module';
 
 @Module({
+  controllers: [DrawController],
+  exports: [DrawService, BullModule],
   imports: [
     BullModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (ConfigService: ConfigService) => ({
+      useFactory: () => ({
         redis: {
-          host: ConfigService.get('CONFIG_COMFYUI_QUENE_REDIS_HOST'),
-          port: ConfigService.get('CONFIG_COMFYUI_QUENE_REDIS_PORT'),
-          password: ConfigService.get('CONFIG_COMFYUI_QUENE_REDIS_PASSWORD'),
+          host: new ConfigService().get('CONFIG_COMFYUI_QUENE_REDIS_HOST'),
+          port: new ConfigService().get('CONFIG_COMFYUI_QUENE_REDIS_PORT'),
+          password: new ConfigService().get(
+            'CONFIG_COMFYUI_QUENE_REDIS_PASSWORD',
+          ),
         },
       }),
-      inject: [ConfigService],
     }),
-    BullModule.registerQueueAsync({
+    BullModule.registerQueue({
       name: 'draw',
     }),
+    CacheModule,
   ],
-  controllers: [DrawController],
   providers: [DrawService],
-  exports: [DrawService, BullModule],
 })
 export class DrawModule {}

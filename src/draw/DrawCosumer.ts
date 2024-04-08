@@ -17,23 +17,38 @@ import Websocket = require('ws');
 export class DrawConsumer {
   constructor(
     private readonly drawService: DrawService,
-    private readonly wsGateway: WsGateway,
     private readonly configService: ConfigService,
     private readonly wechatauthService: WechatAuthService,
     private readonly appSevice: AppService,
-  ) {
-    this.websocketInit();
-  }
-
+  ) {}
   private readonly logger = new Logger(DrawConsumer.name);
   private readonly clientId = 'admin9527'; //id可以随意
   public ws_client: Websocket;
-
-  @Process('text2img')
-  async text2img(job: Job): Promise<string> {
+  public comfyuiserver_url = this.configService.get(
+    'CONFIG_COMFYUI_SERVER_URL',
+  );
+  public comfyuiserver_url2 = this.configService.get(
+    'CONFIG_COMFYUI_SERVER_URL_2',
+  );
+  @Process('cosumer_1')
+  async cosumer_1(job: Job): Promise<string> {
     // const output = await this.testTask(); //测试
     // 绘画任务
-    const output = await this.drawTaskExcu(job.data);
+    const output = await this.drawTaskExcu(job.data, this.comfyuiserver_url);
+    this.logger.debug(`任务完成，${job.id}`);
+    //广播给所有人排队情况
+    const message = {
+      type: 'receive',
+      queue_remaining: await this.drawService.getQueueLength(),
+    };
+    WsGateway.server.emit('message', JSON.stringify(message));
+    return output + '';
+  }
+  @Process('cosumer_2')
+  async cosumer_2(job: Job): Promise<string> {
+    // const output = await this.testTask(); //测试
+    // 绘画任务
+    const output = await this.drawTaskExcu(job.data, this.comfyuiserver_url2);
     this.logger.debug(`任务完成，${job.id}`);
     //广播给所有人排队情况
     const message = {
@@ -47,17 +62,27 @@ export class DrawConsumer {
   /**
    *
    * @param data
+   * @param server_url
    */
-  async drawTaskExcu(data: DrawTask) {
+  async drawTaskExcu(data: DrawTask, server_url: string) {
     return new Promise(async (resolve, reject) => {
       //client_id为用户id
-      await this.websocketInit();
+      // this.logger.debug(
+      //   `初始化websocket链接的结构${await this.websocketInit()}`,
+      // );
+      if (!(await this.websocketInit(server_url))) {
+        reject({ status: 'error', data });
+        return;
+      }
       const { source, client_id, prompt, socket_id } = data;
       const params = {
         client_id: this.clientId, //固定值
         prompt: prompt,
       };
-      const response = await this.drawService.sendTackprompt(params);
+      const response = await this.drawService.sendTackprompt(
+        `http://${server_url}`,
+        params,
+      );
       this.logger.debug(`发送绘画任务后的响应${response}`);
       if (response) {
         //监听服务器消息
@@ -86,21 +111,9 @@ export class DrawConsumer {
                 //如果是微信消息
                 const { filename, subfolder, type } = gifs[0];
                 if (subfolder) {
-                  videoUrl =
-                    this.drawService.webSocketSeverUrl +
-                    '/view?subfolder=' +
-                    subfolder +
-                    '&filename=' +
-                    filename +
-                    '&type=' +
-                    type;
+                  videoUrl = `http://${server_url}/view?subfolder=${subfolder}&filename=${filename}&type=${type}`;
                 } else {
-                  videoUrl =
-                    this.drawService.webSocketSeverUrl +
-                    '/view?filename=' +
-                    filename +
-                    '&type=' +
-                    type;
+                  videoUrl = `http://${server_url}/view?filename=${filename}&type=${type}`;
                 }
                 // 微信公众号回复
                 if (source === 'wechat') {
@@ -126,21 +139,9 @@ export class DrawConsumer {
                 const { filename, subfolder, type } = images[0];
 
                 if (subfolder) {
-                  imageUrl =
-                    this.drawService.webSocketSeverUrl +
-                    '/view?subfolder=' +
-                    subfolder +
-                    '&filename=' +
-                    filename +
-                    '&type=' +
-                    type;
+                  imageUrl = `http://${server_url}/view?subfolder=${subfolder}&filename=${filename}&type=${type}`;
                 } else {
-                  imageUrl =
-                    this.drawService.webSocketSeverUrl +
-                    '/view?filename=' +
-                    filename +
-                    '&type=' +
-                    type;
+                  imageUrl = `http://${server_url}/view?filename=${filename}&type=${type}`;
                 }
                 // 微信公众号回复
                 if (source === 'wechat') {
@@ -171,24 +172,40 @@ export class DrawConsumer {
   /**
    * 初始化与绘画服务端的链接
    */
-  async websocketInit() {
-    if (!this.validateWsconnect()) {
-      this.ws_client = new Websocket(
-        `${this.configService.get('CONFIG_COMFYUI_WS_SERVER_URL')}/ws?clientId=${this.clientId}`,
-      );
-      this.ws_client.onopen = () => {
-        this.logger.debug('链接成功,链接状态：', this.ws_client.readyState);
-      };
-      return this.ws_client.readyState === 1;
-
-    }
+  async websocketInit(server_url: string): Promise<boolean> {
+    return new Promise(async (resolve) => {
+      if (!this.validateWsconnect()) {
+        this.ws_client = new Websocket(
+          `ws://${server_url}/ws?clientId=${this.clientId}`,
+        );
+        this.ws_client.onopen = () => {
+          this.logger.debug(
+            '链接绘画服务器成功,链接状态：',
+            this.ws_client.readyState,
+          );
+          resolve(true);
+        };
+        this.ws_client.onerror = () => {
+          this.logger.error('链接绘画服务器失败');
+          resolve(false);
+        };
+        setTimeout(() => {
+          if (this.ws_client.readyState !== 1) {
+            this.logger.error('链接绘画服务器超时');
+            resolve(false);
+          }
+        }, 500);
+      } else {
+        resolve(true);
+      }
+    });
   }
 
   /**
    * 验证链接状态
    */
   validateWsconnect() {
-    if (this.ws_client === undefined || this.ws_client.readyState != 1) {
+    if (this.ws_client === undefined || this.ws_client.readyState !== 1) {
       this.logger.error('链接不存在,尝试重新连接');
       return false;
     } else {
@@ -220,7 +237,7 @@ export class DrawConsumer {
     return new Promise((resolve) => {
       setTimeout(() => {
         resolve('ok');
-      }, 3000);
+      }, 10000);
     });
   }
 }

@@ -18,8 +18,8 @@ export class OneAPIUser extends BaseEntity {
   status: number;
   @Column({ nullable: true })
   email: string;
-  @PrimaryColumn()
-  github_id: string; //用户唯一标识
+  @Column({ nullable: true })
+  github_id: string; //用户唯一标识,微信uniid
   @Column({ nullable: true })
   wechat_id: string;
   @Column({ nullable: true })
@@ -34,4 +34,6 @@ export class OneAPIUser extends BaseEntity {
   aff_code: string;
   @Column({ nullable: true })
   inviter_id: number;
+  @Column({ nullable: true })
+  headurl: string;
 }

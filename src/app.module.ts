@@ -15,7 +15,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 
 //链接mysql
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { UsersModule } from 'src/oneapi/users/users.module';
+import { OneAPIUsersModule } from 'src/oneapi/users/users.module';
 import { TokensModule } from './oneapi/tokens/tokens.module';
 import { ConfigService } from '@nestjs/config/dist';
 
@@ -24,6 +24,9 @@ import { ConfigService } from '@nestjs/config/dist';
 import { WechatAuthModule } from './wechat-auth/wechat-auth.module';
 import { XMLMiddleware } from './middleware/XML.middleware';
 import { DrawModule } from './draw/draw.module';
+import { UsersModule } from './users/users.module';
+import { AuthModule } from './auth/auth.module';
+import { CacheModule } from './cache/cache.module';
 
 //'mongodb://username:password@localhost:27017/nest'
 @Module({
@@ -42,20 +45,21 @@ import { DrawModule } from './draw/draw.module';
       database: new ConfigService().get('ONEAPI_MYSQL_DATABASE'),
       // entities: [User],
       autoLoadEntities: true,
-      synchronize: false,
+      synchronize: false, //是否同步，正式环境设置为false
     }),
-    //绘画记录保存,默认是需要开启的，新建
-    MongooseModule.forRoot('mongodb://47.116.212.183:27017/test', {
-      authSource: 'admin',
-      user: new ConfigService().get('CONFIG_COMFYUI_HISTORY_MONGO_USERNAME'),
-      pass: new ConfigService().get('CONFIG_COMFYUI_HISTORY_MONGO_PASSWORD'),
+    MongooseModule.forRoot(new ConfigService().get('CONFIG_DB_MONGO_URI'), {
+      user: 'username',
+      pass: 'password',
+      dbName: 'aidraw',
     }),
-
     WechatAuthModule,
-    UsersModule,
+    OneAPIUsersModule,
     TokensModule,
     DrawModule,
     ConfigModule,
+    UsersModule,
+    AuthModule,
+    CacheModule,
   ],
   controllers: [AppController],
   providers: [AppService, WsGateway, DrawConsumer],

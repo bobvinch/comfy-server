@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Get, Query, Body, Controller, Post } from '@nestjs/common';
 import { DrawService, DrawTask } from './draw.service';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
@@ -8,8 +8,9 @@ export class DrawController {
   constructor(private readonly drawService: DrawService) {}
 
   @ApiOperation({
-    summary: '通用接口，可提交任意绘图的comfyui工作流API任务',
-    description: 'AI绘画接口，直接返回绘图成功的结果：图片或者视频的url',
+    summary: '通用接口，',
+    description:
+      'AI绘画接口，可提交任意绘图的comfyui工作流API任务，直接返回绘图成功的结果：图片或者视频的url',
     operationId: 'submitDrawTask',
     tags: ['AI绘画'],
     requestBody: {
@@ -44,6 +45,10 @@ export class DrawController {
                 type: 'string',
                 description: 'api名称具体，文生图，图生图，决定任务的超时时间',
                 example: '文生图',
+              },
+              lifo: {
+                type: 'boolean',
+                description: '是否使用lifo队列，默认false',
               },
             },
           },
@@ -91,6 +96,14 @@ export class DrawController {
                   ckpt_name_id: 0,
                   filename_prefix: 'iamgename', //文件名前缀
                   upscale_by: 1,
+                },
+              },
+              options: {
+                type: 'object',
+                description: '其他可选控制任务分发和队列参数等',
+                example: {
+                  source: 'web', //web or wechat,来源识别，区分web端任务和微信端任务，默认web
+                  lifo: false, //是否使用lifo队列，默认false
                 },
               },
             },
@@ -150,6 +163,14 @@ export class DrawController {
                   upscale_by: 1,
                 },
               },
+              options: {
+                type: 'object',
+                description: '其他可选控制任务分发和队列参数等',
+                example: {
+                  source: 'web', //web or wechat,来源识别，区分web端任务和微信端任务，默认web
+                  lifo: false, //是否使用lifo队列，默认false
+                },
+              },
             },
           },
         },
@@ -203,6 +224,14 @@ export class DrawController {
                   min_cfg: 1,
                 },
               },
+              options: {
+                type: 'object',
+                description: '其他可选控制任务分发和队列参数等',
+                example: {
+                  source: 'web', //web or wechat,来源识别，区分web端任务和微信端任务，默认web
+                  lifo: false, //是否使用lifo队列，默认false
+                },
+              },
             },
           },
         },
@@ -248,6 +277,14 @@ export class DrawController {
                   image_path:
                     'https://wangbo0808.oss-cn-shanghai.aliyuncs.com/aidraw/4c226c64d37f410c857f98ebb3ecb5ef.jpeg',
                   segmentparts: '西瓜',
+                },
+              },
+              options: {
+                type: 'object',
+                description: '其他可选控制任务分发和队列参数等',
+                example: {
+                  source: 'web', //web or wechat,来源识别，区分web端任务和微信端任务，默认web
+                  lifo: false, //是否使用lifo队列，默认false
                 },
               },
             },
@@ -302,6 +339,14 @@ export class DrawController {
                   nagative: '',
                 },
               },
+              options: {
+                type: 'object',
+                description: '其他可选控制任务分发和队列参数等',
+                example: {
+                  source: 'web', //web or wechat,来源识别，区分web端任务和微信端任务，默认web
+                  lifo: false, //是否使用lifo队列，默认false
+                },
+              },
             },
           },
         },
@@ -347,6 +392,14 @@ export class DrawController {
                     'https://wangbo0808.oss-cn-shanghai.aliyuncs.com/aidraw/R-C.jpg',
                 },
               },
+              options: {
+                type: 'object',
+                description: '其他可选控制任务分发和队列参数等',
+                example: {
+                  source: 'web', //web or wechat,来源识别，区分web端任务和微信端任务，默认web
+                  lifo: false, //是否使用lifo队列，默认false
+                },
+              },
             },
           },
         },
@@ -361,4 +414,59 @@ export class DrawController {
   ) {
     return await this.drawService.removebg(client_id, params, socket_id);
   }
+
+  @ApiOperation({
+    summary: '加入绘画黑名单',
+    description: '加入绘画黑名单',
+    operationId: 'addBlackList',
+    tags: ['用户管理'],
+    parameters: [
+      {
+        name: 'client_id',
+        in: 'query',
+        description: 'client_id，客户端唯一标识',
+        required: true,
+        schema: {
+          type: 'string',
+          example: 'your client id',
+        },
+      },
+    ],
+  })
+  @Get('addBlackList')
+  async addBlackList(@Query('client_id') client_id: string) {
+    console.log(client_id);
+    return await this.drawService.addBlackList(client_id);
+  }
+
+  @ApiOperation({
+    summary: '获取绘画黑名单',
+    description: '获取绘画黑名单',
+  })
+  @Get('getBlackList')
+  async getBlackList() {
+    return await this.drawService.getBlackList();
+  }
+
+  @ApiOperation({
+    summary: '移除绘画黑名单',
+    description: '移除绘画黑名单',
+    parameters: [
+      {
+        name: 'client_id',
+        in: 'query',
+        description: 'client_id，客户端唯一标识',
+        required: true,
+        schema: {
+          type: 'string',
+          example: 'your client id',
+        },
+      },
+    ],
+  })
+  @Get('removeBlackList')
+  async removeBlackList(@Query('client_id') uid: string) {
+    return await this.drawService.removeBlackList(uid);
+  }
+
 }
