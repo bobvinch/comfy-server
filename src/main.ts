@@ -7,7 +7,9 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = new DocumentBuilder()
     .setTitle('ComfyUI server API文档')
-    .setDescription('The ComfyUI server API description')
+    .setDescription(
+      '使用ComfyUI的工作流就像使用API一样简单！comfy-server是ComfyUI原生接口的服务端增强版本，可以将comfyUI强大的工作流转换为API供前端调用',
+    )
     .setVersion('1.0')
     .addBearerAuth({
       type: 'http',
