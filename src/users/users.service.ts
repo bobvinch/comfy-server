@@ -146,7 +146,11 @@ export class UsersService {
   }
 
   async comparePassword(password: string, hash: string) {
-    return await bcrypt.compare(password, hash);
+    try {
+      return await bcrypt.compare(password, hash);
+    } catch (e) {
+      throw new Error(e);
+    }
   }
 
   /**

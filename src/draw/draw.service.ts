@@ -1,7 +1,7 @@
-import { Injectable, Logger,UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { ConfigService } from '@nestjs/config/dist';
+import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 // 普通文生图
 
@@ -11,10 +11,7 @@ import { image2img } from './data/workflow_api_image2img';
 
 // 图生视频
 import { img2video } from './data/workflow_api_img2video';
-// 绘画参数
-import objectInfo_1 from './data/objectInfo.json';
 
-const objectInfo = require('./data/objectInfo.json');
 // 抠图
 import { matting } from './data/workflow_api_matting';
 // 局部重绘
@@ -22,7 +19,10 @@ import { inpainting } from './data/workflow_api_inpainting';
 // 移除背景
 import { removebg } from './data/workflow_api_removebg';
 import { CacheService } from '../cache/cache.service';
-import { WsGateway } from '../ws/ws.gateway';
+// 高清修复放大4倍
+import { workflowApiHdfix4 } from './data/workflow_api_hdfix_4';
+// 微信绘画模式
+export type WeChatDrawModel = 'text2img' | 'image2img' | 'img2video';
 
 export interface DrawTask {
   source: 'wechat' | 'web';
@@ -49,7 +49,7 @@ interface ComfyAPIType {
 const APIS = [
   {
     type: '文生图',
-    timeout: 10,
+    timeout: 30,
   },
   {
     type: '图生图',
@@ -82,10 +82,15 @@ export class DrawService {
   private readonly logger = new Logger(DrawService.name);
   private Object_info = null as any;
   private ckpt_names = [] as any[]; //模型集合
+  public local_comfyui = this.configService.get('CONFIG_COMFYUI_SERVER_URL');
+  public remote_comfyui = this.configService.get(
+    'CONFIG_COMFYUI_SERVER_REMOTE_URL',
+  );
+  private accesstoken = ''; //访问远程服务器必须的token
   constructor(
     @InjectQueue('draw') private drawQueue: Queue,
     private readonly cacheService: CacheService,
-    private readonly wsGateway: WsGateway,
+    private readonly configService: ConfigService,
   ) {
     this.Initalize();
   }
@@ -96,9 +101,9 @@ export class DrawService {
     headers: {
       'Access-Control-Allow-Origin': '*',
       Accept: '*/*',
+      Authorization: 'Bearer ' + this.configService.get('CONFIG_COMFYUI_TOKEN'),
     },
   });
-  private count = 1;
 
   /**
    * 讲绘画任务加入到任务队列
@@ -107,26 +112,15 @@ export class DrawService {
   async sendToQueue(data: DrawTask) {
     // 黑名单管理
     if (await this.isInBlackList(data.client_id)) {
-      this.wsGateway.sendSystemMessage(data.socket_id, '你已经被加入黑名单');
-      return new UnauthorizedException('你已经被加入黑名单');
+      this.logger.log('黑名单用户', data.client_id);
+      return;
     }
-    // 负载均衡
-    this.count++;
-    if (this.count % 2 === 0) {
-      return await this.drawQueue.add('cosumer_1', data, {
-        timeout:
-          APIS.find((item) => item.type === data.api)?.timeout * 1000 ||
-          60 * 1000,
-        lifo: data.lifo || false,
-      });
-    } else {
-      return await this.drawQueue.add('cosumer_2', data, {
-        timeout:
-          APIS.find((item) => item.type === data.api)?.timeout * 1000 ||
-          60 * 1000,
-        lifo: data.lifo || false,
-      });
-    }
+    return await this.drawQueue.add('drawtask', data, {
+      timeout:
+        APIS.find((item) => item.type === data.api)?.timeout * 1000 ||
+        60 * 1000,
+      lifo: data.lifo || false,
+    });
   }
 
   /**
@@ -138,6 +132,7 @@ export class DrawService {
       const job = await this.sendToQueue(data);
       const intervalId = setInterval(async () => {
         //   查询任务状态
+        this.logger.debug(`定时器查询绘画进度中………………${intervalId}`);
         const jobTemp = await this.drawQueue.getJob(job.id);
         if (await jobTemp.isCompleted()) {
           this.logger.log(
@@ -147,6 +142,10 @@ export class DrawService {
           );
           clearInterval(intervalId);
           resolve(jobTemp.returnvalue);
+        }
+        if (await jobTemp.isFailed()) {
+          clearInterval(intervalId);
+          reject('任务失败');
         }
       }, 500);
     });
@@ -172,6 +171,24 @@ export class DrawService {
   }
 
   /**
+   * 获取ComfyUI的节点信息
+   */
+  async getObject_info() {
+    try {
+      let url = `${this.local_comfyui}/object_info`;
+      if (this.remote_comfyui) {
+        url = `${this.remote_comfyui}/draw/getObjectinfo`;
+      }
+      const { data } = await this.comfyuiAxios.get(url);
+      // this.logger.log('获取ComfyUI的节点信息成功', data);
+      this.Object_info = data;
+      return data;
+    } catch (error) {
+      // this.logger.error('初始化节点信息发生错误');
+    }
+  }
+
+  /**
    * 返送任务到ComfyUI服务器
    * @param comfyuihttpUrl
    * @param data
@@ -189,26 +206,62 @@ export class DrawService {
   }
 
   /**
-   * 微信端文生图
-   * @param positive
-   * @param client_id 用户id openid,微信用户唯一标识
+   * 获取远程服务调用的token
    */
-  async wechatText2img(positive: string, client_id: string) {
-    return await this.text2img(
-      client_id,
-      undefined,
-      { positive },
-      { source: 'wechat' },
+  async getAccessToken() {
+    const username = this.configService.get(
+      'CONFIG_COMFUI_SERVER_REMOTE_AUTH_USERNAME',
     );
+    const password = this.configService.get(
+      'CONFIG_COMFUI_SERVER_REMOTE_AUTH_PASSWORD',
+    );
+    if (!this.accesstoken) {
+      const { data } = await this.comfyuiAxios.get(
+        `${this.remote_comfyui}/api/auth/signin?username=${username}&password=${password}`,
+      );
+      this.accesstoken = data.access_token;
+    }
+    this.logger.log('成功获取远程绘画服务器的token');
+    return this.accesstoken;
   }
 
-  async wechatImage2img(iamgeUrl: string, client_id: string) {
-    return await this.image2img(
-      client_id,
-      undefined,
-      { image_path: iamgeUrl },
-      { source: 'wechat' },
-    );
+  /**
+   * 远程服务执行微信绘图任务
+   *
+   */
+  async wechatDrawFromRemoteServer(
+    type: WeChatDrawModel,
+    params: {
+      positive?: string;
+      image_path?: string;
+      ckpt_name_id?: number;
+    },
+  ) {
+    this.logger.log(`微信绘画参数为${JSON.stringify(params)}`);
+    if (type === 'text2img') {
+      const url = `${this.remote_comfyui}/draw/text2img`;
+      const { data } = await this.comfyuiAxios.post(url, {
+        clinet_id: '123',
+        params,
+      });
+      return data;
+    }
+    if (type === 'image2img') {
+      const url = `${this.remote_comfyui}/draw/img2img`;
+      const { data } = await this.comfyuiAxios.post(url, {
+        clinet_id: '123',
+        params,
+      });
+      return data;
+    }
+    if (type === 'img2video') {
+      const url = `${this.remote_comfyui}/draw/img2video`;
+      const { data } = await this.comfyuiAxios.post(url, {
+        clinet_id: '123',
+        params,
+      });
+      return data;
+    }
   }
 
   /**
@@ -249,7 +302,7 @@ export class DrawService {
     //正向提示词
     text2img[55].inputs.text = params.positive || '一个女孩';
     //负向提示词
-    text2img[58].inputs.text += params.negative || '';
+    text2img[58].inputs.text = params.negative || '';
     //随机种子
     text2img[54].inputs.seed = params.seed || this.getSeed(15);
     // console.log("seed:" + sdStore.txt2imgParams.seed)
@@ -301,7 +354,7 @@ export class DrawService {
     // if (params.upscale_by) {
     //   image2img[74].inputs.scale_by = params.upscale_by;
     // }
-    image2img[92].inputs.ckpt_name = this.ckpt_names[params.ckpt_name_id || 0];
+    image2img[101].inputs.ckpt_name = this.ckpt_names[params.ckpt_name_id || 0];
     image2img[51].inputs.filename_prefix =
       params.filename_prefix + '_image2img_output_final_';
     const data = {
@@ -334,7 +387,7 @@ export class DrawService {
       filename_prefix?: string;
       cfg?: number;
       steps?: number;
-      min_cfg?: 1;
+      min_cfg?: number;
     },
     options?: {
       source: 'web' | 'wechat';
@@ -348,8 +401,8 @@ export class DrawService {
     img2video[8].inputs.motion_bucket_id = params.motion_bucket_id || 127;
     img2video[8].inputs.augmentation_level = params.augmentation_level || 0;
 
-    img2video[19].inputs.cfg = params.cfg;
-    img2video[19].inputs.steps = params.steps;
+    img2video[19].inputs.cfg = params.cfg || 3;
+    img2video[19].inputs.steps = params.steps || 20;
 
     img2video[23].inputs.filename_prefix =
       params.filename_prefix + '_image2video_output_final_';
@@ -470,18 +523,81 @@ export class DrawService {
   }
 
   /**
+   * 高清修复
+   * @param client_id
+   * @param params
+   * @param socket_id
+   * @param options
+   */
+  async workflowApiHdfix4(
+    client_id: string,
+    params: {
+      image_path: string; //原图路径
+    },
+    socket_id?: string,
+    options?: {
+      source: 'web' | 'wechat';
+      lifo?: boolean;
+    },
+  ) {
+    workflowApiHdfix4[15].inputs.image_path = params.image_path;
+    const data = {
+      source: options?.source || 'web',
+      prompt: workflowApiHdfix4,
+      api: '高清修复x4',
+      client_id,
+      socket_id,
+      lifo: options?.lifo || false,
+    } as DrawTask;
+    return await this.submitDrawTask(data); //统一通过这个方法提交绘画API
+  }
+
+  /**
    * 初始化节点数据
    *
    */
   Initalize = async () => {
-    //初始化获取ComfyUI的节点信息
+    // 初始化获取ComfyUI的节点信息
     if (!this.Object_info) {
-      console.log('@ComfyUI 初始化获取ComfyUI的节点信息');
-      // ComfyUI.Object_info = await ComfyUI.getObject_info()
-      this.ckpt_names =
-        objectInfo['CheckpointLoaderSimple'].input.required.ckpt_name[0];
+      this.getObject_info()
+        .then(() => {
+          console.log('@ComfyUI 初始化获取ComfyUI的节点信息');
+          this.ckpt_names =
+            this.Object_info[
+              'CheckpointLoaderSimple'
+            ].input.required.ckpt_name[0];
+          console.log(
+            `@ComfyUI 初始化获取ComfyUI的节点信息,大模型list：${this.ckpt_names}`,
+          );
+        })
+        .catch(() => {
+          this.logger.error(
+            '初始化节点信息发生错误,未能获取comfy配置信息，请检查网络',
+          );
+        });
     }
+    //如果启用远程绘画服务
+    if (this.remote_comfyui) {
+      // await this.getAccessToken();
+    }
+    //   添加异常处理
+    this.comfyuiAxios.interceptors.response.use(
+      (response) => {
+        return response;
+      },
+      async (error) => {
+        const originalRequest = error.config;
+        if (error?.response?.status === 401 && !originalRequest._retry) {
+          setTimeout(() => {
+            originalRequest._retry = true;
+          }, 2000);
+        }
+        this.logger.error('响应超时');
+        return Promise.reject(error);
+      },
+    );
   };
+
   /**
    * 加入黑名单
    */

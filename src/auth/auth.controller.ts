@@ -1,5 +1,13 @@
 import { AuthService } from './auth.service';
-import { Body, Controller, Post, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Get,
+  Query,
+  Body,
+  Controller,
+  Post,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { ApiOperation } from '@nestjs/swagger';
 
 @Controller('auth')
@@ -8,29 +16,33 @@ export class AuthController {
   @ApiOperation({
     summary: '鉴权',
     description: 'Sign in with username and password,returning a token',
-    requestBody: {
-      content: {
-        'application/json': {
-          schema: {
-            type: 'object',
-            properties: {
-              username: {
-                type: 'string',
-                example: 'admin',
-              },
-              password: {
-                type: 'string',
-                example: 'your password',
-              },
-            },
-          },
+    parameters: [
+      {
+        name: 'username',
+        in: 'query',
+        required: true,
+        description: 'username',
+        schema: {
+          type: 'string',
         },
       },
-    },
+      {
+        name: 'password',
+        in: 'query',
+        required: true,
+        description: 'password',
+        schema: {
+          type: 'string',
+        },
+      },
+    ],
   })
   @HttpCode(HttpStatus.OK)
-  @Post('signin')
-  signIn(@Body() signInDto: Record<string, any>) {
-    return this.authService.authToken(signInDto.username, signInDto.password);
+  @Get('signin')
+  signIn(
+    @Query('username') username: string,
+    @Query('password') password: string,
+  ) {
+    return this.authService.authToken(username, password);
   }
 }

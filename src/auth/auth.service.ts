@@ -11,7 +11,7 @@ export class AuthService {
 
   async authToken(username: string, pass: string): Promise<any> {
     const user = await this.usersService.findByUsername(username);
-    if (user?.password !== pass) {
+    if (!(await this.usersService.comparePassword(pass, user?.password))) {
       throw new UnauthorizedException();
     }
     return {

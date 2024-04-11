@@ -2,7 +2,7 @@ import {
   Process,
   Processor,
   OnQueueActive,
-  OnQueueProgress,
+  OnQueueCompleted,
 } from '@nestjs/bull';
 import { Job } from 'bull';
 import { WsGateway } from 'src/ws/ws.gateway';
@@ -17,39 +17,24 @@ import Websocket = require('ws');
 export class DrawConsumer {
   constructor(
     private readonly drawService: DrawService,
-    private readonly configService: ConfigService,
     private readonly wechatauthService: WechatAuthService,
     private readonly appSevice: AppService,
-  ) {}
+  ) {
+  }
+
   private readonly logger = new Logger(DrawConsumer.name);
   private readonly clientId = 'admin9527'; //id可以随意
   public ws_client: Websocket;
-  public comfyuiserver_url = this.configService.get(
-    'CONFIG_COMFYUI_SERVER_URL',
-  );
-  public comfyuiserver_url2 = this.configService.get(
-    'CONFIG_COMFYUI_SERVER_URL_2',
-  );
-  @Process('cosumer_1')
-  async cosumer_1(job: Job): Promise<string> {
+
+  @Process('drawtask')
+  async drawtask(job: Job): Promise<string> {
     // const output = await this.testTask(); //测试
     // 绘画任务
-    const output = await this.drawTaskExcu(job.data, this.comfyuiserver_url);
-    this.logger.debug(`任务完成，${job.id}`);
-    //广播给所有人排队情况
-    const message = {
-      type: 'receive',
-      queue_remaining: await this.drawService.getQueueLength(),
-    };
-    WsGateway.server.emit('message', JSON.stringify(message));
-    return output + '';
-  }
-  @Process('cosumer_2')
-  async cosumer_2(job: Job): Promise<string> {
-    // const output = await this.testTask(); //测试
-    // 绘画任务
-    const output = await this.drawTaskExcu(job.data, this.comfyuiserver_url2);
-    this.logger.debug(`任务完成，${job.id}`);
+    const output = await this.drawTaskExcu(
+      job.data,
+      this.drawService.local_comfyui,
+    );
+    // this.logger.debug(`任务完成，${job.id}`);
     //广播给所有人排队情况
     const message = {
       type: 'receive',
@@ -80,7 +65,7 @@ export class DrawConsumer {
         prompt: prompt,
       };
       const response = await this.drawService.sendTackprompt(
-        `http://${server_url}`,
+        server_url,
         params,
       );
       this.logger.debug(`发送绘画任务后的响应${response}`);
@@ -111,9 +96,9 @@ export class DrawConsumer {
                 //如果是微信消息
                 const { filename, subfolder, type } = gifs[0];
                 if (subfolder) {
-                  videoUrl = `http://${server_url}/view?subfolder=${subfolder}&filename=${filename}&type=${type}`;
+                  videoUrl = `${server_url}/view?subfolder=${subfolder}&filename=${filename}&type=${type}`;
                 } else {
-                  videoUrl = `http://${server_url}/view?filename=${filename}&type=${type}`;
+                  videoUrl = `${server_url}/view?filename=${filename}&type=${type}`;
                 }
                 // 微信公众号回复
                 if (source === 'wechat') {
@@ -139,19 +124,19 @@ export class DrawConsumer {
                 const { filename, subfolder, type } = images[0];
 
                 if (subfolder) {
-                  imageUrl = `http://${server_url}/view?subfolder=${subfolder}&filename=${filename}&type=${type}`;
+                  imageUrl = `${server_url}/view?subfolder=${subfolder}&filename=${filename}&type=${type}`;
                 } else {
-                  imageUrl = `http://${server_url}/view?filename=${filename}&type=${type}`;
+                  imageUrl = `${server_url}/view?filename=${filename}&type=${type}`;
                 }
                 // 微信公众号回复
-                if (source === 'wechat') {
-                  const mediaId =
-                    await this.wechatauthService.getMediaId(imageUrl);
-                  await this.wechatauthService.sendServiceImageMessge(
-                    mediaId,
-                    client_id,
-                  );
-                }
+                // if (source === 'wechat') {
+                //   const mediaId =
+                //     await this.wechatauthService.getMediaId(imageUrl);
+                //   await this.wechatauthService.sendServiceImageMessge(
+                //     mediaId,
+                //     client_id,
+                //   );
+                // }
                 resolve(imageUrl);
               }
               //保存到数据库
@@ -175,8 +160,9 @@ export class DrawConsumer {
   async websocketInit(server_url: string): Promise<boolean> {
     return new Promise(async (resolve) => {
       if (!this.validateWsconnect()) {
+        const url = server_url.split('//')[1];
         this.ws_client = new Websocket(
-          `ws://${server_url}/ws?clientId=${this.clientId}`,
+          `ws://${url}/ws?clientId=${this.clientId}`,
         );
         this.ws_client.onopen = () => {
           this.logger.debug(
@@ -226,10 +212,10 @@ export class DrawConsumer {
     );
   }
 
-  @OnQueueProgress()
-  onProgress(job: Job) {
+  @OnQueueCompleted()
+  OnQueueCompleted(job: Job) {
     console.log(
-      `Processing job ${job.id} of type ${job.name} with data ${job.data}...starting`,
+      `Processing job ${job.id} of type ${job.name} with data ${job.returnvalue}...finished`,
     );
   }
 

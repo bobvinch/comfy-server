@@ -36,21 +36,28 @@ import { CacheModule } from './cache/cache.module';
       envFilePath: [`.env.${process.env.NODE_ENV}`],
     }),
     //OneAPI数据库,如果不启动ONEAPI的大模型，删除此处的模块引入和oneapi模块
-    TypeOrmModule.forRoot({
-      type: 'mysql',
-      host: new ConfigService().get('ONEAPI_MYSQL_HOST'),
-      port: 3306,
-      username: new ConfigService().get('ONEAPI_MYSQL_USERNAME'),
-      password: new ConfigService().get('ONEAPI_MYSQL_PASSWORD'),
-      database: new ConfigService().get('ONEAPI_MYSQL_DATABASE'),
-      // entities: [User],
-      autoLoadEntities: true,
-      synchronize: false, //是否同步，正式环境设置为false
+    TypeOrmModule.forRootAsync({
+      useFactory: (config: ConfigService) => ({
+        type: 'mysql',
+        host: config.get('ONEAPI_MYSQL_HOST'),
+        port: 3306,
+        username: config.get('ONEAPI_MYSQL_USERNAME'),
+        password: config.get('ONEAPI_MYSQL_PASSWORD'),
+        database: config.get('ONEAPI_MYSQL_DATABASE'),
+        // entities: [User],
+        autoLoadEntities: true,
+        synchronize: false, //是否同步，正式环境设置为false
+      }),
+      inject: [ConfigService],
     }),
-    MongooseModule.forRoot(new ConfigService().get('CONFIG_DB_MONGO_URI'), {
-      user: 'username',
-      pass: 'password',
-      dbName: 'aidraw',
+    MongooseModule.forRootAsync({
+      useFactory: (config: ConfigService) => ({
+        uri: config.get('CONFIG_DB_MONGO_URI'),
+        user: config.get('CONFIG_DB_MONGO_USERNAME'),
+        pass: config.get('CONFIG_DB_MONGO_PASSWORD'),
+        dbName: 'aidraw',
+      }),
+      inject: [ConfigService],
     }),
     WechatAuthModule,
     OneAPIUsersModule,
@@ -65,7 +72,7 @@ import { CacheModule } from './cache/cache.module';
   providers: [AppService, WsGateway, DrawConsumer],
 })
 /**
- * 注册中间件
+ * 注册中间件,微信消息处理中间件
  */
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

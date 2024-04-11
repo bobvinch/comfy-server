@@ -1,8 +1,15 @@
-import { Injectable, Inject } from '@nestjs/common';
-import { RedisClientType } from 'redis';
+import { Injectable } from '@nestjs/common';
+import { Redis } from 'ioredis';
 @Injectable()
 export class CacheService {
-  constructor(@Inject('REDIS_CLIENT') private redisClient: RedisClientType) {}
+  private redisClient: Redis;
+  constructor() {
+    // 在构造函数中初始化 Redis 客户端
+    this.redisClient = new Redis({
+      host: '127.0.0.1',
+      port: 6379,
+    });
+  }
   //获取值
   async get(key): Promise<any> {
     let value = await this.redisClient.get(key);
@@ -20,14 +27,14 @@ export class CacheService {
    */
   async set(key: string, value: any, second?: number) {
     value = JSON.stringify(value);
-    return await this.redisClient.set(key, value, { EX: second });
+    return this.redisClient.set(key, value);
   }
   //删除值
   async del(key: string) {
-    return await this.redisClient.del(key);
+    return this.redisClient.del(key);
   }
   //清除缓存
   async flushall() {
-    return await this.redisClient.flushAll();
+    return this.redisClient.flushall();
   }
 }

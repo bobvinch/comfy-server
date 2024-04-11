@@ -4,6 +4,7 @@ import { DrawController } from './draw.controller';
 import { BullModule } from '@nestjs/bull';
 import { ConfigService } from '@nestjs/config/dist';
 import { CacheModule } from '../cache/cache.module';
+import { WsGateway } from '../ws/ws.gateway';
 
 @Module({
   controllers: [DrawController],

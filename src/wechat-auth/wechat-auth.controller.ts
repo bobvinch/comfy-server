@@ -9,11 +9,11 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
-import { Request, Response } from 'express';
+import e, { Request, Response } from 'express';
 import { WechatAuthService } from './wechat-auth.service';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { create } from 'xmlbuilder2';
-import { DrawService } from '../draw/draw.service';
+import { DrawService, WeChatDrawModel } from '../draw/draw.service';
 import { UsersService } from '../users/users.service';
 
 @ApiTags('微信相关')
@@ -158,7 +158,7 @@ export class WechatAuthController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    console.log(xml);
+    this.logger.log('收到微信服务器转发的消息')
     const {
       xml: {
         ToUserName: [to],
@@ -166,41 +166,149 @@ export class WechatAuthController {
         MsgType: [type],
       },
     } = xml;
-    const resResult = create({
-      xml: {
-        ToUserName: from, // 接收方帐号（收到的OpenID）
-        FromUserName: to, // 开发者微信号
-        CreateTime: new Date().getTime(), // 消息创建时间 （整型）
-        MsgType: 'text',
-        Content: 'AI绘图中，请稍后',
-      },
-    }).end({ prettyPrint: true });
+    //处理消息参数
 
-    res.type('application/xml');
-    res.send(resResult);
-    //发送到任务队列
+    let drawmodel = 'text2img' as WeChatDrawModel;
+    const params = {
+      positive: 'a girl',
+      ckpt_name_id: 0, //使用的大模型id,调用参数参考API文档
+      image_path: '',
+      //   其他参数可以加载后面
+    };
+    // 根据消息类型，调用不同的绘画接口
     if (type === 'text') {
       //文生图
       const {
         xml: {
-          ToUserName: [to],
+          // ToUserName: [to],
           FromUserName: [from],
-          MsgType: [type],
+          // MsgType: [type],
           Content: [content],
         },
       } = xml;
-      await this.drawService.wechatText2img(content, from);
+      if (content.includes('图生图') || content.includes('图生视频')) {
+        //将用户的指令先暂存起来,保存到redis
+        await this.wechatAuthService.saveCommand(content, from);
+        // 回复客户端响应消息
+        const resResult = create({
+          xml: {
+            ToUserName: from, // 接收方帐号（收到的OpenID）
+            FromUserName: to, // 开发者微信号
+            CreateTime: new Date().getTime(), // 消息创建时间 （整型）
+            MsgType: 'text',
+            Content:
+              '已收到主人的绘画指令，请传入一张图片，我可以帮你完成' + content,
+          },
+        }).end({ prettyPrint: true });
+
+        res.type('application/xml');
+        res.send(resResult);
+        return;
+      } else {
+        // 回复客户端响应消息
+        drawmodel = 'text2img';
+        const resResult = create({
+          xml: {
+            ToUserName: from, // 接收方帐号（收到的OpenID）
+            FromUserName: to, // 开发者微信号
+            CreateTime: new Date().getTime(), // 消息创建时间 （整型）
+            MsgType: 'text',
+            Content: 'AI绘图中，请稍后',
+          },
+        }).end({ prettyPrint: true });
+
+        res.type('application/xml');
+        res.send(resResult);
+      }
+      params.positive = content;
     }
     if (type === 'image') {
-      //   图生图
+      // 读取用户的指令
       const {
         xml: {
-          ToUserName: [to],
+          // ToUserName: [to],
           FromUserName: [from],
           PicUrl: [imageurl],
         },
       } = xml;
-      await this.drawService.wechatImage2img(imageurl, from);
+      // 回复客户端响应消息
+      const resResult = create({
+        xml: {
+          ToUserName: from, // 接收方帐号（收到的OpenID）
+          FromUserName: to, // 开发者微信号
+          CreateTime: new Date().getTime(), // 消息创建时间 （整型）
+          MsgType: 'text',
+          Content: 'AI绘图中，请稍后',
+        },
+      }).end({ prettyPrint: true });
+
+      res.type('application/xml');
+      res.send(resResult);
+      params.image_path = imageurl;
+      const command = await this.wechatAuthService.getCommand(from);
+      if (command.includes('图生视频')) {
+        drawmodel = 'img2video';
+      } else {
+        drawmodel = 'image2img';
+        params.positive = command.replace('图生图', '');
+      }
+    }
+    //   启用了远程绘画服务器
+    if (this.drawService.remote_comfyui) {
+      this.logger.log(`启动远程服务器绘画功能，绘画模式是${drawmodel}`);
+      const result = await this.drawService.wechatDrawFromRemoteServer(
+        drawmodel,
+        params,
+      );
+      // 调用客服接口回复消息
+      const mediaId = await this.wechatAuthService.getMediaId(
+        result,
+        drawmodel.includes('video') ? 'video' : 'image',
+      );
+      await this.wechatAuthService.sendServiceImageMessge(
+        mediaId,
+        from,
+        drawmodel.includes('video') ? 'video' : 'image',
+      );
+    } else {
+      // 本地绘画
+      this.logger.log('启动本地绘画功能');
+      if (drawmodel === 'text2img') {
+        //文生图
+        const result = await this.drawService.text2img(from, undefined, params);
+        // 调用客服接口回复消息
+        const mediaId = await this.wechatAuthService.getMediaId(result);
+        await this.wechatAuthService.sendServiceImageMessge(mediaId, from);
+      }
+      if (drawmodel === 'image2img') {
+        //   图生图
+        const result = await this.drawService.image2img(
+          from,
+          undefined,
+          params,
+        );
+        // 调用客服接口回复消息
+        const mediaId = await this.wechatAuthService.getMediaId(result);
+        await this.wechatAuthService.sendServiceImageMessge(mediaId, from);
+      }
+      if (drawmodel === 'img2video') {
+        //   图生视频
+        const result = await this.drawService.image2video(
+          from,
+          undefined,
+          params,
+        );
+        // 调用客服接口回复消息
+        const mediaId = await this.wechatAuthService.getMediaId(
+          result,
+          'video',
+        );
+        await this.wechatAuthService.sendServiceImageMessge(
+          mediaId,
+          from,
+          'video',
+        );
+      }
     }
   }
 
@@ -228,7 +336,7 @@ export class WechatAuthController {
     @Query('nonce') nonce: string,
     @Query('echostr') echostr: string,
   ) {
-    this.logger.log(echostr);
-    return echostr || '121212';
+    // this.logger.log(echostr);
+    return echostr || 'error';
   }
 }

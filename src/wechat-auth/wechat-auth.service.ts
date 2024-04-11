@@ -1,11 +1,8 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
-import { nanoid } from 'nanoid';
 import { ConfigService } from '@nestjs/config/dist';
-import { InjectQueue } from '@nestjs/bull';
-import { Queue } from 'bull';
 import { DrawService } from '../draw/draw.service';
-import { UsersService } from '../users/users.service';
+import { CacheService } from '../cache/cache.service';
 
 @Injectable()
 export class WechatAuthService {
@@ -13,6 +10,7 @@ export class WechatAuthService {
     // @InjectQueue('draw') private drawQueue: Queue,
     private readonly configService: ConfigService,
     private readonly drawService: DrawService,
+    private cacheService: CacheService,
   ) {}
 
   private readonly logger = new Logger(WechatAuthService.name);
@@ -66,15 +64,21 @@ export class WechatAuthService {
   /**
    * 上传图片文件作为临时素材，获取微信服务器的media_id
    * @param imageUrl
+   * @param type
    */
-  async getMediaId(imageUrl: string): Promise<string> {
+  async getMediaId(imageUrl: string, type?: string): Promise<string> {
     const access_token = await this.getAccessToken();
     const upload_url =
       this.wx_baseurl +
-      `/cgi-bin/media/upload?access_token=${access_token}&type=image`;
-    const file = await this.urlToFile(imageUrl, 'image.png', 'image/png');
+      `/cgi-bin/media/upload?access_token=${access_token}&type=${type || 'image'}`;
+    const file = await this.urlToFile(
+      imageUrl,
+      type === 'video' ? 'video.mp4' : 'image.png',
+      type === 'video' ? 'video/mp4' : 'image/png',
+    );
     const formdata = new FormData();
-    formdata.append('image', file);
+    console.log('上传的文件', file);
+    formdata.append(type || 'image', file);
     const res = await axios.post(upload_url, formdata, {
       headers: {
         'Content-Type': 'multipart/form-data',
@@ -82,7 +86,7 @@ export class WechatAuthService {
     });
     console.log('上传微信服务返回的数据', res.data);
     const { media_id } = res.data;
-    return media_id || '';
+    return media_id;
   }
 
   private draw_access_token = {
@@ -137,18 +141,53 @@ export class WechatAuthService {
    * 发送客服图片消息
    * @param media_id
    * @param touser
+   * @param msgtype
    */
-  async sendServiceImageMessge(media_id: string, touser: string) {
+  async sendServiceImageMessge(
+    media_id: string,
+    touser: string,
+    msgtype?: string,
+  ) {
     const access_token = await this.getAccessToken();
     const url = `https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token=${access_token}`;
-    const message = {
-      touser: touser,
-      msgtype: 'image',
-      image: {
-        media_id: media_id,
-      },
-    };
+    let message;
+    if (msgtype === 'video') {
+      message = {
+        touser: touser,
+        msgtype: 'video',
+        video: {
+          media_id: media_id,
+          title: 'AI视频',
+          description: '视频由AI生成',
+        },
+      };
+    } else {
+      message = {
+        touser: touser,
+        msgtype: 'image',
+        image: {
+          media_id: media_id,
+        },
+      };
+    }
+
     const res = await axios.post(url, message);
     console.log('发送结果：', res.data);
+  }
+
+  /**
+   * 保存用户的指令
+   */
+  async saveCommand(command: string, openid: string) {
+    const key = `command:${openid}`;
+    await this.cacheService.set(key, command);
+  }
+
+  /**
+   * 获取用户的指令
+   */
+  async getCommand(openid: string) {
+    const key = `command:${openid}`;
+    return await this.cacheService.get(key);
   }
 }

@@ -8,6 +8,14 @@ export class DrawController {
   constructor(private readonly drawService: DrawService) {}
 
   @ApiOperation({
+    summary: '获取comfyui节点信息',
+    description: '获取comfyui节点信息',
+  })
+  @Get('getObjectinfo')
+  async getObjectinfo() {
+    return await this.drawService.getObject_info();
+  }
+  @ApiOperation({
     summary: '通用接口，',
     description:
       'AI绘画接口，可提交任意绘图的comfyui工作流API任务，直接返回绘图成功的结果：图片或者视频的url',
@@ -118,7 +126,7 @@ export class DrawController {
     @Body('client_id') client_id: string,
     @Body('socket_id') socket_id: string,
   ) {
-    console.log(socket_id);
+    // console.log(socket_id);
     return await this.drawService.text2img(client_id, socket_id, params);
   }
 
@@ -414,6 +422,65 @@ export class DrawController {
   ) {
     return await this.drawService.removebg(client_id, params, socket_id);
   }
+  @ApiOperation({
+    summary: 'HD修复',
+    description:
+      'HD修复，上传原图，将原图进行HD修复，直接返回绘图成功的结果图片',
+    operationId: 'hdfix',
+    tags: ['AI绘画'],
+    requestBody: {
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              client_id: {
+                type: 'string',
+                description: 'client_id，客户端唯一标识',
+                example: 'your client id',
+              },
+              socket_id: {
+                type: 'string',
+                description:
+                  'socket_id，websocket唯一标识,web端调用的时候必须，否则无法接受到websocket实时消息',
+                example: 'your socket id',
+              },
+              params: {
+                type: 'object',
+                description: 'comfyui绘画API关键参数',
+                example: {
+                  image_path:
+                    'https://wangbo0808.oss-cn-shanghai.aliyuncs.com/aidraw/ComfyUI_00001_.png',
+                },
+              },
+              options: {
+                type: 'object',
+                description: '其他可选控制任务分发和队列参数等',
+                example: {
+                  source: 'web', //web or wechat,来源识别，区分web端任务和微信端任务，默认web
+                  lifo: false, //是否使用lifo队列，默认false
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+  @Post('hdfix')
+  async hdfix(
+    @Body('params') params: any,
+    @Body('client_id') client_id: string,
+    @Body('socket_id') socket_id: string,
+    @Body('options') options: any,
+  ) {
+    return await this.drawService.workflowApiHdfix4(
+      client_id,
+      params,
+      socket_id,
+      options,
+    );
+  }
 
   @ApiOperation({
     summary: '加入绘画黑名单',
@@ -468,5 +535,4 @@ export class DrawController {
   async removeBlackList(@Query('client_id') uid: string) {
     return await this.drawService.removeBlackList(uid);
   }
-
 }
