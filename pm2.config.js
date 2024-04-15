@@ -1,3 +1,7 @@
+/**
+ * this is a pm2 starter config file
+ * @type {{apps: [{watch: boolean, name: string, env: {NODE_ENV: string}, script: string}]}}
+ */
 module.exports = {
   apps: [
     {

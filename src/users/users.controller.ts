@@ -22,7 +22,10 @@ export class UsersController {
     private readonly usersService: UsersService,
   ) {
   }
-
+  @Post()
+  createUser(@Body() createUserDto: CreateUserDto) {
+    return this.usersService.create(createUserDto);
+  }
   @ApiOperation({
     summary: '微信登录',
     description: '微信登录',
@@ -69,5 +72,4 @@ export class UsersController {
   remove(@Param('id') id: string) {
     return this.usersService.remove(id);
   }
-
 }

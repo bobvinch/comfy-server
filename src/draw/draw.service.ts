@@ -8,7 +8,6 @@ import axios from 'axios';
 import { text2img } from './data/workflow_api_text2img';
 // 图生图
 import { image2img } from './data/workflow_api_image2img';
-
 // 图生视频
 import { img2video } from './data/workflow_api_img2video';
 
@@ -21,61 +20,14 @@ import { removebg } from './data/workflow_api_removebg';
 import { CacheService } from '../cache/cache.service';
 // 高清修复放大4倍
 import { workflowApiHdfix4 } from './data/workflow_api_hdfix_4';
+// 换脸
+import { FaceSwap } from './data/workflow_api_faceswap';
+// AI模特，AI电商换装
+import { workflowApiModel } from './data/workflow_api_model';
+
 // 微信绘画模式
 export type WeChatDrawModel = 'text2img' | 'image2img' | 'img2video';
-
-export interface DrawTask {
-  source: 'wechat' | 'web';
-  client_id: string;
-  prompt: any;
-  api: string;
-  socket_id?: string;
-  lifo?: boolean;
-}
-
-interface ComfyAPIType {
-  type:
-    | '文生图'
-    | '图生图'
-    | '图生视频'
-    | 'AI模特'
-    | 'AI写真'
-    | '放大1'
-    | '放大2'
-    | 'AI推文';
-  timeout: number;
-}
-
-const APIS = [
-  {
-    type: '文生图',
-    timeout: 30,
-  },
-  {
-    type: '图生图',
-    timeout: 60,
-  },
-  {
-    type: '图生视频',
-    timeout: 120,
-  },
-  {
-    type: 'AI模特',
-    timeout: 120,
-  },
-  {
-    type: 'AI写真',
-    timeout: 240,
-  },
-  {
-    type: '放大1',
-    timeout: 120,
-  },
-  {
-    type: '放大2',
-    timeout: 180,
-  },
-] as ComfyAPIType[];
+import { ApiTimeOut, drawConfig, DrawTask } from './data/DrawConfig';
 
 @Injectable()
 export class DrawService {
@@ -117,8 +69,8 @@ export class DrawService {
     }
     return await this.drawQueue.add('drawtask', data, {
       timeout:
-        APIS.find((item) => item.type === data.api)?.timeout * 1000 ||
-        60 * 1000,
+        ApiTimeOut.find((item) => item.type === data.api)?.timeout * 1000 ||
+        drawConfig.defaultTimeOut * 1000,
       lifo: data.lifo || false,
     });
   }
@@ -552,6 +504,75 @@ export class DrawService {
     return await this.submitDrawTask(data); //统一通过这个方法提交绘画API
   }
 
+  /**
+   * 换脸
+   */
+  async faceSwap(
+    client_id: string,
+    params: {
+      image_path_face: string; //人脸图片路径
+      image_path_refer: string; //参考图片路径
+    },
+    socket_id?: string,
+    options?: {
+      source: 'web' | 'wechat';
+      lifo?: boolean;
+    },
+  ) {
+    FaceSwap[91].inputs.image_path = params.image_path_refer;
+    FaceSwap[92].inputs.image_path = params.image_path_face;
+    const data = {
+      source: options?.source || 'web',
+      prompt: FaceSwap,
+      api: '换脸',
+      client_id,
+      socket_id,
+      lifo: options?.lifo || false,
+    } as DrawTask;
+    return await this.submitDrawTask(data); //统一通过这个方法提交绘画API
+  }
+  /**
+   * AI模特，AI电商换装
+   */
+  async model(
+    client_id: string,
+    params: {
+      image_path_model: string; //人台模特照片
+      parts?: string; //需要给模特试穿的部分
+      image_path_mask?: string; //自定义遮罩
+      positive?: string;
+      nagative?: string;
+      ckpt_name_id?: number;
+    },
+    socket_id?: string,
+    options?: {
+      source: 'web' | 'wechat';
+      lifo?: boolean;
+    },
+  ) {
+    const image_path_mask =
+      params.image_path_mask ||
+      (await this.segmentAnything(client_id, {
+        image_path: params.image_path_model,
+        segmentparts: params.parts,
+      }));
+    workflowApiModel[177].inputs.image_path = params.image_path_model;
+    workflowApiModel[170].inputs.image_path = image_path_mask;
+    workflowApiModel[179].inputs.text = params.positive || '';
+    workflowApiModel[171].inputs.text = params.nagative || '';
+    workflowApiModel[143].inputs.ckpt_name =
+      this.ckpt_names[params.ckpt_name_id || 0];
+    workflowApiModel[183].inputs.seed = this.getSeed(15);
+    const data = {
+      source: options?.source || 'web',
+      prompt: workflowApiModel,
+      api: 'AI模特',
+      client_id,
+      socket_id,
+      lifo: options?.lifo || false,
+    } as DrawTask;
+    return await this.submitDrawTask(data); //统一通过这个方法提交绘画API
+  }
   /**
    * 初始化节点数据
    *

@@ -1,6 +1,7 @@
 import { Get, Query, Body, Controller, Post } from '@nestjs/common';
-import { DrawService, DrawTask } from './draw.service';
+import { DrawService } from './draw.service';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { DrawTask } from './data/DrawConfig';
 
 @ApiTags('AI绘画')
 @Controller('draw')
@@ -480,6 +481,126 @@ export class DrawController {
       socket_id,
       options,
     );
+  }
+  @ApiOperation({
+    summary: '人脸融合-换脸',
+    description: '人脸融合（换脸），将人物脸部转移参考图，实现AI艺术照的效果',
+    operationId: 'faceswap',
+    tags: ['AI绘画'],
+    requestBody: {
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              client_id: {
+                type: 'string',
+                description: 'client_id，客户端唯一标识',
+                example: 'your client id',
+              },
+              socket_id: {
+                type: 'string',
+                description:
+                  'socket_id，websocket唯一标识,web端调用的时候必须，否则无法接受到websocket实时消息',
+                example: 'your socket id',
+              },
+              params: {
+                type: 'object',
+                description: 'comfyui绘画API关键参数',
+                example: {
+                  image_path_face:
+                    'https://wangbo0808.oss-cn-shanghai.aliyuncs.com/aidraw/R-C.jpg',
+                  image_path_refer:
+                    'https://wangbo0808.oss-cn-shanghai.aliyuncs.com/aidraw/t2i_1.jpg',
+                },
+              },
+              options: {
+                type: 'object',
+                description: '其他可选控制任务分发和队列参数等',
+                example: {
+                  source: 'web', //web or wechat,来源识别，区分web端任务和微信端任务，默认web
+                  lifo: false, //是否使用lifo队列，默认false
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+  @Post('faceswap')
+  async faceswap(
+    @Body('params') params: any,
+    @Body('client_id') client_id: string,
+    @Body('socket_id') socket_id: string,
+    @Body('options') options: any,
+  ) {
+    return await this.drawService.faceSwap(
+      client_id,
+      params,
+      socket_id,
+      options,
+    );
+  }
+  @ApiOperation({
+    summary: 'AI模特-电商换装',
+    description: '讲人台模特照或者商拍中指定部分保留，其余地方重绘，可以拍摄商品，服装，鞋子，包包均可',
+    operationId: 'aimodel',
+    tags: ['AI绘画'],
+    requestBody: {
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              client_id: {
+                type: 'string',
+                description: 'client_id，客户端唯一标识',
+                example: 'your client id',
+              },
+              socket_id: {
+                type: 'string',
+                description:
+                  'socket_id，websocket唯一标识,web端调用的时候必须，否则无法接受到websocket实时消息',
+                example: 'your socket id',
+              },
+              params: {
+                type: 'object',
+                description: 'comfyui绘画API关键参数',
+                example: {
+                  parts: '裙子',
+                  image_path_model:
+                    'https://wangbo0808.oss-cn-shanghai.aliyuncs.com/aidraw/AI%E5%81%87%E4%BA%BA%E6%A8%A1%E7%89%B9.png',
+                  image_path_mask:
+                    'https://wangbo0808.oss-cn-shanghai.aliyuncs.com/aidraw/AI%25E5%2581%2587%25E4%25BA%25BA%25E6%25A8%25A1%25E7%2589%25B9__segment_output_final__0001.png',
+                  positives: '一个女孩，淡蓝色背景，摄影效果，超精细，氛围',
+                  negatives: '丑陋的,吊带，遮挡皮肤',
+                  ckpt_name_id: 0,
+                },
+              },
+              options: {
+                type: 'object',
+                description: '其他可选控制任务分发和队列参数等',
+                example: {
+                  source: 'web', //web or wechat,来源识别，区分web端任务和微信端任务，默认web
+                  lifo: false, //是否使用lifo队列，默认false
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+  @Post('model')
+  async model(
+    @Body('params') params: any,
+    @Body('client_id') client_id: string,
+    @Body('socket_id') socket_id: string,
+    @Body('options') options: any,
+  ) {
+    console.log(params);
+    return await this.drawService.model(client_id, params, socket_id, options);
   }
 
   @ApiOperation({
