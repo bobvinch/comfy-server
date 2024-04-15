@@ -8,10 +8,11 @@ import { Job } from 'bull';
 import { WsGateway } from 'src/ws/ws.gateway';
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config/dist';
-import { DrawService, DrawTask } from './draw.service';
+import { DrawService } from './draw.service';
 import { WechatAuthService } from '../wechat-auth/wechat-auth.service';
 import { AppService } from '../app.service';
 import Websocket = require('ws');
+import { DrawTask } from './data/DrawConfig';
 
 @Processor('draw')
 export class DrawConsumer {
@@ -162,7 +163,7 @@ export class DrawConsumer {
       if (!this.validateWsconnect()) {
         const url = server_url.split('//')[1];
         this.ws_client = new Websocket(
-          `ws://${url}/ws?clientId=${this.clientId}`,
+          `${url.includes('https') ? 'wss' : 'ws'}://${url}/ws?clientId=${this.clientId}`,
         );
         this.ws_client.onopen = () => {
           this.logger.debug(

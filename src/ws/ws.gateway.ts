@@ -6,7 +6,8 @@ import {
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
 import { Socket } from 'socket.io';
-import { DrawService, DrawTask } from '../draw/draw.service';
+import { DrawService } from '../draw/draw.service';
+import { DrawTask } from '../draw/data/DrawConfig';
 @WebSocketGateway(3002, {
   // 解决跨域
   allowEIO3: true,

@@ -1,13 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { Redis } from 'ioredis';
+import { ConfigService } from '@nestjs/config';
 @Injectable()
 export class CacheService {
   private redisClient: Redis;
-  constructor() {
+  constructor(private readonly configService: ConfigService) {
     // 在构造函数中初始化 Redis 客户端
     this.redisClient = new Redis({
-      host: '127.0.0.1',
-      port: 6379,
+      host: this.configService.get('CONFIG_COMFYUI_QUENE_REDIS_HOST'),
+      port: this.configService.get('CONFIG_COMFYUI_QUENE_REDIS_PORT'),
     });
   }
   //获取值

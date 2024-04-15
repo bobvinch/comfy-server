@@ -8,6 +8,12 @@ import { JwtService } from '@nestjs/jwt';
 import { jwtConstants } from './constants';
 import { Request } from 'express';
 
+/**
+ * 🔒 This guard is used to protect routes that require authentication.
+ * It will check if the user is authenticated and if so, it will attach the user's payload to the request object.
+ * If the user is not authenticated, it will throw an UnauthorizedException.
+ *
+ */
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(private jwtService: JwtService) {}
@@ -21,9 +27,7 @@ export class AuthGuard implements CanActivate {
     try {
       // 💡 We're assigning the payload to the request object here
       // so that we can access it in our route handlers
-      request['user'] = await this.jwtService.verifyAsync(
-        token,
-        {
+      request['user'] = await this.jwtService.verifyAsync(token, {
         secret: jwtConstants.secret,
       });
     } catch {

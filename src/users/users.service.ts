@@ -22,17 +22,31 @@ export class UsersService {
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
     private readonly jwtService: JwtService,
+  ) {}
 
-  ) {
-  }
-
+  /**
+   * 注意，账号创建不做用户验证
+   * @param createUserDto
+   */
   async create(createUserDto: CreateUserDto) {
     //根据username查找用户是否存在
-    const user = await this.findByUsername(createUserDto.username);
-    if (user) {
-      console.log('user:', user);
-      return user;
-    }
+    // let user;
+    // // 用户存在
+    // if (createUserDto.username) {
+    //   user = await this.findByUsername(createUserDto.username);
+    // }
+    // // 微信ID存在
+    // if (createUserDto.wx_unionid) {
+    //   user = await this.findByWxUnionid(createUserDto.wx_unionid);
+    // }
+    // // 邮箱存在
+    // if (createUserDto.email) {
+    //   user = await this.findByEmail(createUserDto.email);
+    // }
+    // if (user) {
+    //   console.log('user:', user);
+    //   return user;
+    // }
     //根据email查找用户是否存在
     // const emailUser = await this.findByEmail(createUserDto.email);
     // if (emailUser) {
@@ -48,7 +62,7 @@ export class UsersService {
    * 注册
    */
   async registerByUsername(createUserDto: CreateUserDto) {
-    const { username, email } = createUserDto;
+    const { username } = createUserDto;
     console.log(username);
     if (username) {
       const user = await this.findByUsername(username);
@@ -106,6 +120,14 @@ export class UsersService {
       msg: '登录成功',
       data: await this.updateToken(user._id, user.username),
     } as RegistRes;
+  }
+
+  /**
+   * 根据加密的密码和实现自动登录
+   */
+  async autoLogin(user: User) {
+    const {password}=user
+
   }
 
   findAll() {

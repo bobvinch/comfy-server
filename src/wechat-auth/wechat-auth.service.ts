@@ -47,18 +47,18 @@ export class WechatAuthService {
     const Access_res = await this.getAccess_token(code);
     this.logger.debug('获取token', Access_res);
 
-    const { access_token, openid, unionid } = Access_res;
+    const { access_token, openid } = Access_res;
     if (access_token) {
       const userinfo_url =
         'https://api.weixin.qq.com/sns/userinfo?access_token=' +
         access_token +
         '&openid=' +
         openid;
-      const userinfo_res = await axios.get(userinfo_url);
-      return userinfo_res.data;
+      const { data } = await axios.get(userinfo_url);
+      return data;
+    } else {
+      return null;
     }
-    //返回
-    return 'Error';
   }
 
   /**
