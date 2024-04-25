@@ -1,0 +1,59 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Comfy-server" type="docker-deploy" factoryName="docker-image" server-name="Docker">
+    <deployment type="docker-image">
+      <settings>
+        <option name="imageTag" value="node20.12.1_runtime-stage:latest" />
+        <option name="containerName" value="comfy-server" />
+        <option name="envVars">
+          <list>
+            <DockerEnvVarImpl>
+              <option name="name" value="CONFIG_COMFYUI_QUENE_REDIS_HOST" />
+              <option name="value" value="172.17.0.4" />
+            </DockerEnvVarImpl>
+            <DockerEnvVarImpl>
+              <option name="name" value="CONFIG_COMFYUI_QUENE_REDIS_PASSWORD" />
+              <option name="value" value="" />
+            </DockerEnvVarImpl>
+            <DockerEnvVarImpl>
+              <option name="name" value="CONFIG_COMFYUI_QUENE_REDIS_PORT" />
+              <option name="value" value="6379" />
+            </DockerEnvVarImpl>
+            <DockerEnvVarImpl>
+              <option name="name" value="CONFIG_COMFYUI_SERVER_URL" />
+              <option name="value" value="http://172.17.0.0:8188" />
+            </DockerEnvVarImpl>
+            <DockerEnvVarImpl>
+              <option name="name" value="CONFIG_DB_MONGO_PASSWORD" />
+              <option name="value" value="password" />
+            </DockerEnvVarImpl>
+            <DockerEnvVarImpl>
+              <option name="name" value="CONFIG_DB_MONGO_URI" />
+              <option name="value" value="mongodb://172.17.0.3:27017" />
+            </DockerEnvVarImpl>
+            <DockerEnvVarImpl>
+              <option name="name" value="CONFIG_DB_MONGO_USERNAME" />
+              <option name="value" value="username" />
+            </DockerEnvVarImpl>
+            <DockerEnvVarImpl>
+              <option name="name" value="ONEAPI_MYSQL_DATABASE" />
+              <option name="value" value="oneapi" />
+            </DockerEnvVarImpl>
+            <DockerEnvVarImpl>
+              <option name="name" value="ONEAPI_MYSQL_HOST" />
+              <option name="value" value="172.17.0.2" />
+            </DockerEnvVarImpl>
+            <DockerEnvVarImpl>
+              <option name="name" value="ONEAPI_MYSQL_PASSWORD" />
+              <option name="value" value="wangbo123" />
+            </DockerEnvVarImpl>
+            <DockerEnvVarImpl>
+              <option name="name" value="ONEAPI_MYSQL_USERNAME" />
+              <option name="value" value="root" />
+            </DockerEnvVarImpl>
+          </list>
+        </option>
+      </settings>
+    </deployment>
+    <method v="2" />
+  </configuration>
+</component>

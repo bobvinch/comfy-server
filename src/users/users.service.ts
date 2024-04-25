@@ -6,7 +6,6 @@ import { User } from './schema/user.schema';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
-import { CacheService } from '../cache/cache.service';
 
 /**
  * 注册结果消息接口
@@ -75,10 +74,12 @@ export class UsersService {
         } as RegistRes;
       }
       const createdUser = await this.create(createUserDto);
+      //更新token，并返回User
+      await this.updateToken(createdUser._id, createdUser.username);
       return {
         status: 0,
         msg: '注册成功',
-        data: createdUser,
+        data: await this.findOne(createdUser._id + ''),
       } as RegistRes;
     }
   }
@@ -105,9 +106,7 @@ export class UsersService {
         data: null,
       } as RegistRes;
     }
-    const isMatch =
-      (await this.comparePassword(password, user.password)) ||
-      password === user.password;
+    const isMatch = await this.comparePassword(password, user.password);
     if (!isMatch) {
       return {
         status: 1,
@@ -126,8 +125,7 @@ export class UsersService {
    * 根据加密的密码和实现自动登录
    */
   async autoLogin(user: User) {
-    const {password}=user
-
+    const { password } = user;
   }
 
   findAll() {
@@ -194,7 +192,7 @@ export class UsersService {
    * @param username
    */
   async updateToken(_id, username) {
-    return await this.userModel.findByIdAndUpdate(_id, {
+    return this.userModel.findByIdAndUpdate(_id, {
       token: await this.createToken(_id, username),
     });
   }

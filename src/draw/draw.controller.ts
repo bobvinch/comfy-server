@@ -544,7 +544,8 @@ export class DrawController {
   }
   @ApiOperation({
     summary: 'AI模特-电商换装',
-    description: '讲人台模特照或者商拍中指定部分保留，其余地方重绘，可以拍摄商品，服装，鞋子，包包均可',
+    description:
+      '讲人台模特照或者商拍中指定部分保留，其余地方重绘，可以拍摄商品，服装，鞋子，包包均可',
     operationId: 'aimodel',
     tags: ['AI绘画'],
     requestBody: {
@@ -601,6 +602,64 @@ export class DrawController {
   ) {
     console.log(params);
     return await this.drawService.model(client_id, params, socket_id, options);
+  }
+  @ApiOperation({
+    summary: '提示词反推',
+    description: 'AI标签-图片标签，将图片进行标签识别，返回标签结果',
+    operationId: 'image2tagger',
+    tags: ['AI绘画'],
+    requestBody: {
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              client_id: {
+                type: 'string',
+                description: 'client_id，客户端唯一标识',
+                example: 'your client id',
+              },
+              socket_id: {
+                type: 'string',
+                description:
+                  'socket_id，websocket唯一标识,web端调用的时候必须，否则无法接受到websocket实时消息',
+                example: 'your socket id',
+              },
+              params: {
+                type: 'object',
+                description: 'comfyui绘画API关键参数',
+                example: {
+                  image_path:
+                    'https://wangbo0808.oss-cn-shanghai.aliyuncs.com/aidraw/R-C.jpg',
+                },
+              },
+              options: {
+                type: 'object',
+                description: '其他可选控制任务分发和队列参数等',
+                example: {
+                  source: 'web', //web or wechat,来源识别，区分web端任务和微信端任务，默认web
+                  lifo: false, //是否使用lifo队列，默认false
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+  @Post('image2tagger')
+  async image2tagger(
+    @Body('params') params: any,
+    @Body('client_id') client_id: string,
+    @Body('socket_id') socket_id: string,
+    @Body('options') options: any,
+  ) {
+    return await this.drawService.image2tagger(
+      client_id,
+      params,
+      socket_id,
+      options,
+    );
   }
 
   @ApiOperation({

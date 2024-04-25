@@ -4,7 +4,15 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule,{
+    cors: true,
+  });
+  app.enableCors({
+    origin: '*',
+    methods: '*',
+    allowedHeaders: '*',
+    credentials: true,
+  });
   const config = new DocumentBuilder()
     .setTitle('ComfyUI server API文档')
     .setDescription(

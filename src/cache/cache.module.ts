@@ -2,10 +2,18 @@ import { Module, Global } from '@nestjs/common';
 import { CacheService } from './cache.service';
 import { CacheController } from './cache.controller';
 import { ConfigService } from '@nestjs/config';
-import { RedisModule as NestRedisModule } from '@liaoliaots/nestjs-redis';
+import { RedisModule } from '@nestjs-modules/ioredis';
 @Global()
 @Module({
-  imports: [NestRedisModule.forRoot({ config: { db: 2 } })],
+  imports: [
+    RedisModule.forRootAsync({
+      useFactory: (config: ConfigService) => ({
+        type: 'single',
+        url: `redis://${config.get('CONFIG_COMFYUI_QUENE_REDIS_HOST')}:${config.get('CONFIG_COMFYUI_QUENE_REDIS_PORT')}`,
+      }),
+      inject: [ConfigService],
+    }),
+  ],
   providers: [CacheService],
   exports: [CacheService],
 })
