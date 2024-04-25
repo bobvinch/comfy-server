@@ -35,10 +35,6 @@ export const ApiTimeOut = [
     type: '放大2',
     timeout: 180,
   },
-  {
-    type: '图片反推提示词',
-    timeout: 15,
-  },
 ] as ComfyAPIType[];
 
 export interface ComfyAPIType {
@@ -51,8 +47,7 @@ export interface ComfyAPIType {
     | '放大1'
     | '放大2'
     | 'AI推文'
-    | '换脸'
-    | '图片反推提示词';
+    | '换脸';
   timeout: number;
 }
 
@@ -63,5 +58,4 @@ export interface DrawTask {
   api: string;
   socket_id?: string;
   lifo?: boolean;
-  prompt_id?: string;
 }

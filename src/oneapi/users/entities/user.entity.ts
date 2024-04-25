@@ -18,7 +18,7 @@ export class OneAPIUser extends BaseEntity {
   status: number;
   @Column({ nullable: true })
   email: string;
-  @Column({ nullable: true })
+  @PrimaryColumn()
   github_id: string; //用户唯一标识
   @Column({ nullable: true })
   wechat_id: string;

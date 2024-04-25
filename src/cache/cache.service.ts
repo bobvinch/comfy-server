@@ -1,25 +1,19 @@
 import { Injectable } from '@nestjs/common';
-import Redis from 'ioredis';
+import { Redis } from 'ioredis';
 import { ConfigService } from '@nestjs/config';
-import { InjectRedis } from '@nestjs-modules/ioredis';
 @Injectable()
 export class CacheService {
-  // private redisClient: Redis;
-  constructor(
-    private readonly configService: ConfigService,
-    @InjectRedis() private readonly redis: Redis,
-    // private readonly redisService: RedisService,
-  ) {
-    console.log('环境变量', this.configService);
-    // this.redisClient = this.redisService.getClient();
-  }
-  async root(): Promise<boolean> {
-    // this.redisClient = await this.redisService.getClient();
-    return true;
+  private redisClient: Redis;
+  constructor(private readonly configService: ConfigService) {
+    // 在构造函数中初始化 Redis 客户端
+    this.redisClient = new Redis({
+      host: this.configService.get('CONFIG_COMFYUI_QUENE_REDIS_HOST'),
+      port: this.configService.get('CONFIG_COMFYUI_QUENE_REDIS_PORT'),
+    });
   }
   //获取值
-  async get(key: string): Promise<any> {
-    let value = await this.redis.get(key);
+  async get(key): Promise<any> {
+    let value = await this.redisClient.get(key);
     try {
       value = JSON.parse(value);
     } catch (error) {}
@@ -34,14 +28,14 @@ export class CacheService {
    */
   async set(key: string, value: any, second?: number) {
     value = JSON.stringify(value);
-    return this.redis.set(key, value);
+    return this.redisClient.set(key, value);
   }
   //删除值
   async del(key: string) {
-    return this.redis.del(key);
+    return this.redisClient.del(key);
   }
   //清除缓存
   async flushall() {
-    return this.redis.flushall();
+    return this.redisClient.flushall();
   }
 }

@@ -3,13 +3,14 @@ import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
-
 // 普通文生图
+
 import { text2img } from './data/workflow_api_text2img';
 // 图生图
 import { image2img } from './data/workflow_api_image2img';
 // 图生视频
 import { img2video } from './data/workflow_api_img2video';
+
 // 抠图
 import { matting } from './data/workflow_api_matting';
 // 局部重绘
@@ -23,13 +24,10 @@ import { workflowApiHdfix4 } from './data/workflow_api_hdfix_4';
 import { FaceSwap } from './data/workflow_api_faceswap';
 // AI模特，AI电商换装
 import { workflowApiModel } from './data/workflow_api_model';
-import { ApiTimeOut, drawConfig, DrawTask } from './data/DrawConfig';
-import { FileService } from '../file/file.service';
-//图片反推提示词API
-import {workflowApiTagger} from './data/workflow_api_tagger'
 
 // 微信绘画模式
 export type WeChatDrawModel = 'text2img' | 'image2img' | 'img2video';
+import { ApiTimeOut, drawConfig, DrawTask } from './data/DrawConfig';
 
 @Injectable()
 export class DrawService {
@@ -40,30 +38,12 @@ export class DrawService {
   public remote_comfyui = this.configService.get(
     'CONFIG_COMFYUI_SERVER_REMOTE_URL',
   );
-  private oss_enable = this.configService.get('OSS_ACCESSKEYSECRET');
   private accesstoken = ''; //访问远程服务器必须的token
   constructor(
     @InjectQueue('draw') private drawQueue: Queue,
     private readonly cacheService: CacheService,
     private readonly configService: ConfigService,
-    private readonly fileService: FileService,
   ) {
-    //   添加异常处理
-    this.comfyuiAxios.interceptors.response.use(
-      (response) => {
-        return response;
-      },
-      async (error) => {
-        const originalRequest = error.config;
-        if (error?.response?.status === 401 && !originalRequest._retry) {
-          setTimeout(() => {
-            originalRequest._retry = true;
-          }, 2000);
-        }
-        this.logger.error('响应超时');
-        return Promise.reject(error);
-      },
-    );
     this.Initalize();
   }
 
@@ -116,40 +96,8 @@ export class DrawService {
           resolve(jobTemp.returnvalue);
         }
         if (await jobTemp.isFailed()) {
-          // 任务失败,尝试去按照prompt_id去远程服务器获取结果
-          const { prompt_id } = jobTemp.data;
-          const server = this.remote_comfyui || this.local_comfyui;
-          if (server) {
-            const { data } = await this.comfyuiAxios.get(
-              `${server}/history/${prompt_id}`,
-            );
-            this.logger.log('远程服务器获取结果成功', data);
-            if (data[prompt_id]) {
-              //从data中尝试解构出来结果
-              const { outputs } = data[prompt_id];
-              Object.keys(outputs).forEach((key) => {
-                console.log(key, outputs[key]);
-                if (
-                  outputs[key]['images'] &&
-                  outputs[key]['images'].length > 0
-                ) {
-                  let imageUrl = '';
-                  const { filename, subfolder, type } =
-                    outputs[key]['images'][0];
-                  if (subfolder) {
-                    imageUrl = `${server}/view?subfolder=${subfolder}&filename=${filename}&type=${type}`;
-                  } else {
-                    imageUrl = `${server}/view?filename=${filename}&type=${type}`;
-                  }
-                  clearInterval(intervalId);
-                  resolve(imageUrl);
-                  return;
-                }
-              });
-            }
-          }
           clearInterval(intervalId);
-          reject({ staus: 'error', message: '任务失败' });
+          reject('任务失败');
         }
       }, 500);
     });
@@ -197,7 +145,7 @@ export class DrawService {
    * @param comfyuihttpUrl
    * @param data
    */
-  async sendTackprompt(comfyuihttpUrl: string, data: any): Promise<string> {
+  async sendTackprompt(comfyuihttpUrl: string, data: any): Promise<any> {
     try {
       const {
         data: { prompt_id },
@@ -210,7 +158,7 @@ export class DrawService {
   }
 
   /**
-   * 获取远程服务调用的token，暂时未启用
+   * 获取远程服务调用的token
    */
   async getAccessToken() {
     const username = this.configService.get(
@@ -303,7 +251,6 @@ export class DrawService {
       lifo?: boolean;
     },
   ) {
-    await this.Initalize(); //初始化获取ComfyUI的节点信息
     //正向提示词
     text2img[55].inputs.text = params.positive || '一个女孩';
     //负向提示词
@@ -327,13 +274,9 @@ export class DrawService {
       socket_id,
       lifo: options?.lifo || false,
     } as DrawTask;
-    const _v = await this.submitDrawTask(data);
-    if (this.oss_enable) {
-      // 启用OSS
-      return await this.fileService.uploadFileToOSS(_v, `image`);
-    } else {
-      return _v;
-    }
+    const result = await this.submitDrawTask(data);
+    this.logger.log('文生图结果', result);
+    return result;
   }
 
   /**
@@ -356,7 +299,6 @@ export class DrawService {
       lifo?: boolean;
     },
   ) {
-    await this.Initalize(); //初始化获取ComfyUI的节点信息
     //图片路径
     image2img[70].inputs.image_path = params.image_path;
     image2img[85].inputs.denoise = params.denoise || 0.5;
@@ -375,13 +317,7 @@ export class DrawService {
       socket_id,
       lifo: options?.lifo || false,
     } as DrawTask;
-    const _v = await this.submitDrawTask(data);
-    if (this.oss_enable) {
-      // 启用OSS
-      return await this.fileService.uploadFileToOSS(_v, `image`);
-    } else {
-      return _v;
-    }
+    return await this.submitDrawTask(data);
   }
 
   /**
@@ -410,7 +346,6 @@ export class DrawService {
       lifo?: boolean;
     },
   ) {
-    await this.Initalize(); //初始化获取ComfyUI的节点信息
     //图片路径
     img2video[37].inputs.image_path = params.image_path;
     img2video[8].inputs.video_frames = params.video_frames || 14;
@@ -433,13 +368,7 @@ export class DrawService {
       socket_id,
       lifo: options?.lifo || false,
     } as DrawTask;
-    const _v = await this.submitDrawTask(data);
-    if (this.oss_enable) {
-      // 启用OSS
-      return await this.fileService.uploadFileToOSS(_v, `video`);
-    } else {
-      return _v;
-    }
+    return await this.submitDrawTask(data);
   }
 
   /**
@@ -461,7 +390,6 @@ export class DrawService {
       lifo?: boolean;
     },
   ) {
-    await this.Initalize(); //初始化获取ComfyUI的节点信息
     matting[67].inputs.text = params.segmentparts;
     matting[62].inputs.image_path = params.image_path;
     const data = {
@@ -472,13 +400,7 @@ export class DrawService {
       socket_id,
       lifo: options?.lifo || false,
     } as DrawTask;
-    const _v = await this.submitDrawTask(data);
-    if (this.oss_enable) {
-      // 启用OSS
-      return await this.fileService.uploadFileToOSS(_v, `image`);
-    } else {
-      return _v;
-    }
+    return await this.submitDrawTask(data);
   }
 
   /**
@@ -504,7 +426,6 @@ export class DrawService {
       lifo?: boolean;
     },
   ) {
-    await this.Initalize(); //初始化获取ComfyUI的节点信息
     inpainting[70].inputs.image_path = params.image_path;
     inpainting[87].inputs.image_path = params.image_path_mask;
     inpainting[98].inputs.ckpt_name = this.ckpt_names[params.ckpt_name_id];
@@ -519,13 +440,7 @@ export class DrawService {
       socket_id,
       lifo: options?.lifo || false,
     } as DrawTask;
-    const _v = await this.submitDrawTask(data);
-    if (this.oss_enable) {
-      // 启用OSS
-      return await this.fileService.uploadFileToOSS(_v, `image`);
-    } else {
-      return _v;
-    }
+    return await this.submitDrawTask(data);
   }
 
   /**
@@ -546,7 +461,6 @@ export class DrawService {
       lifo?: boolean;
     },
   ) {
-    await this.Initalize(); //初始化获取ComfyUI的节点信息
     removebg[62].inputs.image_path = params.image_path;
 
     const data = {
@@ -557,13 +471,7 @@ export class DrawService {
       socket_id,
       lifo: options?.lifo || false,
     } as DrawTask;
-    const _v = await this.submitDrawTask(data);
-    if (this.oss_enable) {
-      // 启用OSS
-      return await this.fileService.uploadFileToOSS(_v, `image`);
-    } else {
-      return _v;
-    }
+    return await this.submitDrawTask(data);
   }
 
   /**
@@ -584,39 +492,11 @@ export class DrawService {
       lifo?: boolean;
     },
   ) {
-    await this.Initalize(); //初始化获取ComfyUI的节点信息
     workflowApiHdfix4[15].inputs.image_path = params.image_path;
     const data = {
       source: options?.source || 'web',
       prompt: workflowApiHdfix4,
       api: '高清修复x4',
-      client_id,
-      socket_id,
-      lifo: options?.lifo || false,
-    } as DrawTask;
-    return await this.submitDrawTask(data); //统一通过这个方法提交绘画API
-  }
-
-  /**
-   * 图片反推提示词
-   */
-  async image2tagger(
-    client_id: string,
-    params: {
-      image_path: string; //原图路径
-    },
-    socket_id?: string,
-    options?: {
-      source: 'web' | 'wechat';
-      lifo?: boolean;
-    },
-  ) {
-    await this.Initalize(); //初始化获取ComfyUI的节点信息
-    workflowApiTagger[10].inputs.image_path = params.image_path;
-    const data = {
-      source: options?.source || 'web',
-      prompt: workflowApiTagger,
-      api: '图片反推提示词',
       client_id,
       socket_id,
       lifo: options?.lifo || false,
@@ -639,7 +519,6 @@ export class DrawService {
       lifo?: boolean;
     },
   ) {
-    await this.Initalize(); //初始化获取ComfyUI的节点信息
     FaceSwap[91].inputs.image_path = params.image_path_refer;
     FaceSwap[92].inputs.image_path = params.image_path_face;
     const data = {
@@ -650,13 +529,7 @@ export class DrawService {
       socket_id,
       lifo: options?.lifo || false,
     } as DrawTask;
-    const _v = await this.submitDrawTask(data);
-    if (this.oss_enable) {
-      // 启用OSS
-      return await this.fileService.uploadFileToOSS(_v, `image`);
-    } else {
-      return _v;
-    }
+    return await this.submitDrawTask(data); //统一通过这个方法提交绘画API
   }
   /**
    * AI模特，AI电商换装
@@ -677,7 +550,6 @@ export class DrawService {
       lifo?: boolean;
     },
   ) {
-    await this.Initalize(); //初始化获取ComfyUI的节点信息
     const image_path_mask =
       params.image_path_mask ||
       (await this.segmentAnything(client_id, {
@@ -699,41 +571,53 @@ export class DrawService {
       socket_id,
       lifo: options?.lifo || false,
     } as DrawTask;
-    const _v = await this.submitDrawTask(data);
-    if (this.oss_enable) {
-      // 启用OSS
-      return await this.fileService.uploadFileToOSS(_v, `image`);
-    } else {
-      return _v;
-    }
+    return await this.submitDrawTask(data); //统一通过这个方法提交绘画API
   }
   /**
    * 初始化节点数据
    *
    */
-  async Initalize() {
+  Initalize = async () => {
     // 初始化获取ComfyUI的节点信息
-    this.logger.log(
-      'ComfyUI服务器地址',
-      this.configService.get('CONFIG_COMFYUI_SERVER_URL'),
-    );
     if (!this.Object_info) {
-      await this.getObject_info();
-      if (!this.Object_info) {
-        this.logger.error('获取ComfyUI的节点信息失败');
-        return;
-      } else {
-        this.ckpt_names =
-          this.Object_info[
-            'CheckpointLoaderSimple'
-          ].input.required.ckpt_name[0];
-      }
+      this.getObject_info()
+        .then(() => {
+          console.log('@ComfyUI 初始化获取ComfyUI的节点信息');
+          this.ckpt_names =
+            this.Object_info[
+              'CheckpointLoaderSimple'
+            ].input.required.ckpt_name[0];
+          console.log(
+            `@ComfyUI 初始化获取ComfyUI的节点信息,大模型list：${this.ckpt_names}`,
+          );
+        })
+        .catch(() => {
+          this.logger.error(
+            '初始化节点信息发生错误,未能获取comfy配置信息，请检查网络',
+          );
+        });
     }
     //如果启用远程绘画服务
     if (this.remote_comfyui) {
       // await this.getAccessToken();
     }
-  }
+    //   添加异常处理
+    this.comfyuiAxios.interceptors.response.use(
+      (response) => {
+        return response;
+      },
+      async (error) => {
+        const originalRequest = error.config;
+        if (error?.response?.status === 401 && !originalRequest._retry) {
+          setTimeout(() => {
+            originalRequest._retry = true;
+          }, 2000);
+        }
+        this.logger.error('响应超时');
+        return Promise.reject(error);
+      },
+    );
+  };
 
   /**
    * 加入黑名单

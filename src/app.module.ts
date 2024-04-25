@@ -27,8 +27,6 @@ import { DrawModule } from './draw/draw.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { CacheModule } from './cache/cache.module';
-import { FileModule } from './file/file.module';
-import { TweetModule } from './tweet/tweet.module';
 
 //'mongodb://username:password@localhost:27017/nest'
 @Module({
@@ -69,8 +67,6 @@ import { TweetModule } from './tweet/tweet.module';
     UsersModule,
     AuthModule,
     CacheModule,
-    FileModule,
-    TweetModule,
   ],
   controllers: [AppController],
   providers: [AppService, WsGateway, DrawConsumer],
