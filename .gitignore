@@ -35,3 +35,5 @@ lerna-debug.log*
 !.vscode/extensions.json
 #配置文件
 docker-compose.yml
+.env.development
+.env.production
