@@ -114,7 +114,7 @@ export class WechatAuthController {
     const { _id, username } = user;
     //更新toekn
     await this.usersService.updateToken(_id, username);
-    return user;
+    return await this.usersService.findOne(_id + '');
   }
 
   /**

@@ -3,6 +3,7 @@ import axios from 'axios';
 import { ConfigService } from '@nestjs/config/dist';
 import { DrawService } from '../draw/draw.service';
 import { CacheService } from '../cache/cache.service';
+import { FileService } from '../file/file.service';
 
 @Injectable()
 export class WechatAuthService {
@@ -11,6 +12,7 @@ export class WechatAuthService {
     private readonly configService: ConfigService,
     private readonly drawService: DrawService,
     private cacheService: CacheService,
+    private readonly fileService: FileService,
   ) {}
 
   private readonly logger = new Logger(WechatAuthService.name);
@@ -71,7 +73,7 @@ export class WechatAuthService {
     const upload_url =
       this.wx_baseurl +
       `/cgi-bin/media/upload?access_token=${access_token}&type=${type || 'image'}`;
-    const file = await this.urlToFile(
+    const file = await this.fileService.urlToFile(
       imageUrl,
       type === 'video' ? 'video.mp4' : 'image.png',
       type === 'video' ? 'video/mp4' : 'image/png',
@@ -120,21 +122,6 @@ export class WechatAuthService {
     ) {
       return this.draw_access_token.token;
     }
-  }
-
-  /**
-   * 将url转换成file
-   * @param url 图片链接
-   * @param fileName 文件名
-   * @param mimeType 文件类型
-   * @private
-   */
-  private async urlToFile(url, fileName, mimeType): Promise<File> {
-    return fetch(url)
-      .then((res) => res.arrayBuffer())
-      .then((buffer) => {
-        return new File([buffer], fileName, { type: mimeType });
-      });
   }
 
   /**

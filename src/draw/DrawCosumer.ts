@@ -7,12 +7,10 @@ import {
 import { Job } from 'bull';
 import { WsGateway } from 'src/ws/ws.gateway';
 import { Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config/dist';
 import { DrawService } from './draw.service';
 import { WechatAuthService } from '../wechat-auth/wechat-auth.service';
 import { AppService } from '../app.service';
 import Websocket = require('ws');
-import { DrawTask } from './data/DrawConfig';
 
 @Processor('draw')
 export class DrawConsumer {
@@ -20,8 +18,7 @@ export class DrawConsumer {
     private readonly drawService: DrawService,
     private readonly wechatauthService: WechatAuthService,
     private readonly appSevice: AppService,
-  ) {
-  }
+  ) {}
 
   private readonly logger = new Logger(DrawConsumer.name);
   private readonly clientId = 'admin9527'; //id可以随意
@@ -31,10 +28,7 @@ export class DrawConsumer {
   async drawtask(job: Job): Promise<string> {
     // const output = await this.testTask(); //测试
     // 绘画任务
-    const output = await this.drawTaskExcu(
-      job.data,
-      this.drawService.local_comfyui,
-    );
+    const output = await this.drawTaskExcu(job, this.drawService.local_comfyui);
     // this.logger.debug(`任务完成，${job.id}`);
     //广播给所有人排队情况
     const message = {
@@ -47,20 +41,22 @@ export class DrawConsumer {
 
   /**
    *
-   * @param data
+   * @param job
    * @param server_url
    */
-  async drawTaskExcu(data: DrawTask, server_url: string) {
+  async drawTaskExcu(job: Job, server_url: string) {
     return new Promise(async (resolve, reject) => {
       //client_id为用户id
       // this.logger.debug(
       //   `初始化websocket链接的结构${await this.websocketInit()}`,
       // );
       if (!(await this.websocketInit(server_url))) {
-        reject({ status: 'error', data });
+        reject({ status: 'error', data: job.data });
         return;
       }
-      const { source, client_id, prompt, socket_id } = data;
+      const {
+        data: { source, client_id, prompt, socket_id, api },
+      } = job;
       const params = {
         client_id: this.clientId, //固定值
         prompt: prompt,
@@ -71,6 +67,10 @@ export class DrawConsumer {
       );
       this.logger.debug(`发送绘画任务后的响应${response}`);
       if (response) {
+        //将获取到的任务id保存到data中 方便后续在websocket失效的情况下也能取回绘画结果
+        job.data.prompt_id = response;
+        //将数据重新存给job
+        await job.update(job.data);
         //监听服务器消息
         this.logger.debug(`发送绘画任务成功`);
         this.ws_client.onmessage = async (event: any) => {
@@ -84,8 +84,18 @@ export class DrawConsumer {
             target_socket.emit('message', event.data);
           }
           try {
-            const { type } = JSON.parse(event.data + '');
+            const { type, data } = JSON.parse(event.data + '');
+            if (type === 'execution_error') {
+              reject({ status: 'error', data: job.data });
+            }
             if (type === 'executed') {
+              //如果API是反推提示词输出文本结果
+              if (api === '图片反推提示词') {
+                const {
+                  output: { tags },
+                } = data;
+                resolve(tags[0]);
+              }
               // 解析视频
               const {
                 data: {
@@ -150,7 +160,7 @@ export class DrawConsumer {
           }
         };
       } else {
-        reject({ status: 'error', data });
+        reject({ status: 'error', data: job.data });
       }
     });
   }
@@ -163,7 +173,7 @@ export class DrawConsumer {
       if (!this.validateWsconnect()) {
         const url = server_url.split('//')[1];
         this.ws_client = new Websocket(
-          `${url.includes('https') ? 'wss' : 'ws'}://${url}/ws?clientId=${this.clientId}`,
+          `${server_url.includes('https') ? 'wss' : 'ws'}://${url}/ws?clientId=${this.clientId}`,
         );
         this.ws_client.onopen = () => {
           this.logger.debug(
