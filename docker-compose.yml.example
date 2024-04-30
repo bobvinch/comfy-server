@@ -44,6 +44,8 @@ services:
       - OSS_ACCESSKEYID=
       - OSS_ACCESSKEYSECRET=
       - OSS_BUCKET=
+      #SD3 key,使用SD3 需要配置
+      - CONFIG_SD3_APIKEY=
       #可选配置，接别人的Comfy-server API
       - CONFIG_COMFYUI_SERVER_REMOTE_URL=
       - CONFIG_COMFUI_SERVER_REMOTE_AUTH_USERNAME=

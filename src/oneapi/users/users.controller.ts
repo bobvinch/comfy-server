@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { OneAPIUsersService } from './users.service';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { OneAPIUser } from './user.entity';
+import { OneAPIUser } from './entities/user.entity';
 
 @ApiTags('OneAPI')
 @Controller('oneapi/users')

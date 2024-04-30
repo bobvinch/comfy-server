@@ -1,11 +1,12 @@
-import { Injectable } from '@nestjs/common';
-import { OneAPIUser } from './user.entity';
+import { Injectable, Logger } from '@nestjs/common';
+import { OneAPIUser } from './entities/user.entity';
 
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 @Injectable()
 export class OneAPIUsersService {
+  private readonly logger = new Logger(OneAPIUsersService.name);
   constructor(
     @InjectRepository(OneAPIUser)
     private readonly usersRepository: Repository<OneAPIUser>,
@@ -31,11 +32,18 @@ export class OneAPIUsersService {
    * @constructor
    */
   async CreateByUniId(user: OneAPIUser) {
-    const res = await this.findOneByUniId(user.github_id);
+    //根据id或者用户名查找
+    const res =
+      (await this.findOneByUniId(user.github_id)) ||
+      (await this.usersRepository.findOneBy({
+        username: user.username,
+      }));
     console.log(res);
     if (res) {
+      this.logger.log('用户已存在');
       return res;
     } else {
+      this.logger.log('用户不存在，创建用户');
       return await this.create(user);
     }
     // return this.usersRepository.findOneBy({ id });

@@ -14,9 +14,9 @@ import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 
 //链接mysql
-// import { TypeOrmModule } from '@nestjs/typeorm';
-// import { OneAPIUsersModule } from 'src/oneapi/users/users.module';
-// import { TokensModule } from './oneapi/tokens/tokens.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { OneAPIUsersModule } from 'src/oneapi/users/users.module';
+import { TokensModule } from './oneapi/tokens/tokens.module';
 import { ConfigService } from '@nestjs/config/dist';
 
 //定时任务
@@ -38,20 +38,20 @@ import { TweetModule } from './tweet/tweet.module';
       envFilePath: [`.env.${process.env.NODE_ENV}`],
     }),
     //OneAPI数据库,如果不启动ONEAPI的大模型，删除此处的模块引入和oneapi模块
-    // TypeOrmModule.forRootAsync({
-    //   useFactory: (config: ConfigService) => ({
-    //     type: 'mysql',
-    //     host: config.get('ONEAPI_MYSQL_HOST'),
-    //     port: 3306,
-    //     username: config.get('ONEAPI_MYSQL_USERNAME'),
-    //     password: config.get('ONEAPI_MYSQL_PASSWORD'),
-    //     database: config.get('ONEAPI_MYSQL_DATABASE'),
-    //     // entities: [User],
-    //     autoLoadEntities: true,
-    //     synchronize: false, //是否同步，正式环境设置为false
-    //   }),
-    //   inject: [ConfigService],
-    // }),
+    TypeOrmModule.forRootAsync({
+      useFactory: (config: ConfigService) => ({
+        type: 'mysql',
+        host: config.get('ONEAPI_MYSQL_HOST'),
+        port: config.get('ONEAPI_MYSQL_PORT'),
+        username: config.get('ONEAPI_MYSQL_USERNAME'),
+        password: config.get('ONEAPI_MYSQL_PASSWORD'),
+        database: config.get('ONEAPI_MYSQL_DATABASE'),
+        // entities: [User],
+        autoLoadEntities: true,
+        synchronize: false, //是否同步，正式环境设置为false
+      }),
+      inject: [ConfigService],
+    }),
     MongooseModule.forRootAsync({
       useFactory: (config: ConfigService) => ({
         uri: config.get('CONFIG_DB_MONGO_URI'),
@@ -62,8 +62,8 @@ import { TweetModule } from './tweet/tweet.module';
       inject: [ConfigService],
     }),
     WechatAuthModule,
-    // OneAPIUsersModule,
-    // TokensModule,
+    OneAPIUsersModule,
+    TokensModule,
     DrawModule,
     ConfigModule,
     UsersModule,

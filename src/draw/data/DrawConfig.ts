@@ -9,7 +9,7 @@ export const drawConfig={
 export const ApiTimeOut = [
   {
     type: '文生图',
-    timeout: 30,
+    timeout: 60,
   },
   {
     type: '图生图',
@@ -37,7 +37,7 @@ export const ApiTimeOut = [
   },
   {
     type: '图片反推提示词',
-    timeout: 15,
+    timeout: 20,
   },
 ] as ComfyAPIType[];
 

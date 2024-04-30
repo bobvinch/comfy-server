@@ -97,7 +97,7 @@ export class DrawController {
                 type: 'object',
                 description: 'comfyui绘画API关键参数',
                 example: {
-                  positive: '一个女孩',
+                  positive: 'a asia girl',
                   negative: '丑陋的',
                   seed: 12345678912345,
                   width: 512,
@@ -112,6 +112,7 @@ export class DrawController {
                 description: '其他可选控制任务分发和队列参数等',
                 example: {
                   source: 'web', //web or wechat,来源识别，区分web端任务和微信端任务，默认web
+                  apisource: 'default',
                   lifo: false, //是否使用lifo队列，默认false
                 },
               },
@@ -126,9 +127,15 @@ export class DrawController {
     @Body('params') params: any,
     @Body('client_id') client_id: string,
     @Body('socket_id') socket_id: string,
+    @Body('options') options: any,
   ) {
-    // console.log(socket_id);
-    return await this.drawService.text2img(client_id, socket_id, params);
+    console.log('收到的绘画参数', params);
+    return await this.drawService.text2img(
+      client_id,
+      socket_id,
+      params,
+      options,
+    );
   }
 
   /**
@@ -136,6 +143,7 @@ export class DrawController {
    * @param params
    * @param client_id
    * @param socket_id
+   * @param options
    */
   @ApiOperation({
     summary: '图生图',
@@ -165,11 +173,17 @@ export class DrawController {
                 example: {
                   image_path:
                     'https://wangbo0808.oss-cn-shanghai.aliyuncs.com/aidraw/t2i_1.jpg',
+                  positive: '',
+                  nagative: '',
                   denoise: 0.5,
                   noise_seed: 1212121212121212,
                   ckpt_name_id: 0,
                   filename_prefix: 'your imagename here', //文件名前缀
                   upscale_by: 1,
+                  sd3_style_preset: '', //SD3风格
+                  sd3_aspect_ratio: '', //SD3比例
+                  sd3_model: 'sd3', //SD3模型
+                  sd3_strength: 0.5, //SD3强度
                 },
               },
               options: {
@@ -177,6 +191,7 @@ export class DrawController {
                 description: '其他可选控制任务分发和队列参数等',
                 example: {
                   source: 'web', //web or wechat,来源识别，区分web端任务和微信端任务，默认web
+                  apisource: 'default',
                   lifo: false, //是否使用lifo队列，默认false
                 },
               },
@@ -191,9 +206,15 @@ export class DrawController {
     @Body('params') params: any,
     @Body('client_id') client_id: string,
     @Body('socket_id') socket_id: string,
+    @Body('options') options: any,
   ) {
     console.log(socket_id);
-    return await this.drawService.image2img(client_id, socket_id, params);
+    return await this.drawService.image2img(
+      client_id,
+      socket_id,
+      params,
+      options,
+    );
   }
   @ApiOperation({
     summary: '图生视频',

@@ -3,6 +3,8 @@ import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const FormData = require('form-data');
 
 // 普通文生图
 import { text2img } from './data/workflow_api_text2img';
@@ -27,9 +29,37 @@ import { ApiTimeOut, drawConfig, DrawTask } from './data/DrawConfig';
 import { FileService } from '../file/file.service';
 //图片反推提示词API
 import { workflowApiTagger } from './data/workflow_api_tagger';
+import * as fs from 'node:fs';
 
 // 微信绘画模式
 export type WeChatDrawModel = 'text2img' | 'image2img' | 'img2video';
+type SD3AspectRatio =
+  | '1:1'
+  | '16:9'
+  | '21:9'
+  | '2:3'
+  | '3:2'
+  | '3:4'
+  | '4:3'
+  | '9:16';
+type SD3StylePreset =
+  | '3d-model'
+  | 'analog-film'
+  | 'anime'
+  | 'cinematic'
+  | 'comic-book'
+  | 'digital-art'
+  | 'enhance'
+  | 'fantasy-art'
+  | 'isometric'
+  | 'line-art'
+  | 'low-poly'
+  | 'modeling-compound'
+  | 'neon-punk'
+  | 'origami'
+  | 'photographic'
+  | 'pixel-art'
+  | 'tile-texture';
 
 @Injectable()
 export class DrawService {
@@ -186,6 +216,9 @@ export class DrawService {
       const { data } = await this.comfyuiAxios.get(url);
       // this.logger.log('获取ComfyUI的节点信息成功', data);
       this.Object_info = data;
+      //后去模型清单
+      this.ckpt_names =
+        this.Object_info['CheckpointLoaderSimple'].input.required.ckpt_name[0];
       return data;
     } catch (error) {
       // this.logger.error('初始化节点信息发生错误');
@@ -297,12 +330,26 @@ export class DrawService {
       ckpt_name_id?: number;
       filename_prefix?: string | number; //文件名前缀
       upscale_by?: number;
+      sd3_style_preset?: SD3StylePreset; //SD3风格
+      sd3_aspect_ratio?: SD3AspectRatio; //SD3比例
+      sd3_model?: 'sd3' | 'sd3-turbo'; //SD3模型
     },
     options?: {
       source: 'web' | 'wechat';
+      apisource?: 'default' | 'sd3';
       lifo?: boolean;
     },
   ) {
+    //如果apisource是sd3则调用sd3文生图
+    if (options?.apisource === 'sd3') {
+      return await this.text2imgSD3({
+        prompt: params.positive || '',
+        style_preset: params.sd3_style_preset,
+        aspect_ratio: params.sd3_aspect_ratio,
+        negative_prompt: params.negative || '',
+        model: params.sd3_model || 'sd3',
+      });
+    }
     await this.Initalize(); //初始化获取ComfyUI的节点信息
     //正向提示词
     text2img[55].inputs.text = params.positive || '一个女孩';
@@ -345,17 +392,42 @@ export class DrawService {
     socket_id?: string,
     params?: {
       image_path: string;
+      positive?: string;
+      nagative?: string;
       denoise?: number;
       noise_seed?: number;
       ckpt_name_id?: number;
       filename_prefix?: string | number; //文件名前缀
       upscale_by?: number;
+      sd3_style_preset?: SD3StylePreset; //SD3风格
+      sd3_aspect_ratio?: SD3AspectRatio; //SD3比例
+      sd3_model?: 'sd3' | 'sd3-turbo'; //SD3模型
+      sd3_strength?: number; //SD3强度
     },
     options?: {
       source: 'web' | 'wechat';
+      apisource?: 'default' | 'sd3';
       lifo?: boolean;
     },
   ) {
+    //如果apisource是sd3则调用sd3文生图
+
+    const AB = await this.fileService.urlToArrayBuffer(params.image_path);
+    const bf = Buffer.from(AB);
+    //将file保存到服务上
+    fs.writeFileSync('temp.png', bf);
+    if (options?.apisource === 'sd3') {
+      return await this.text2imgSD3({
+        prompt: params.positive || '',
+        seed: params.noise_seed,
+        mode: 'image-to-image',
+        image: fs.createReadStream('temp.png'),
+        style_preset: params.sd3_style_preset,
+        negative_prompt: params.nagative || '',
+        strength: params.sd3_strength || 0.5,
+        model: params.sd3_model || 'sd3',
+      });
+    }
     await this.Initalize(); //初始化获取ComfyUI的节点信息
     //图片路径
     image2img[70].inputs.image_path = params.image_path;
@@ -705,6 +777,80 @@ export class DrawService {
       return await this.fileService.uploadFileToOSS(_v, `image`);
     } else {
       return _v;
+    }
+  }
+
+  /**
+   * SD3 官方官方文生图
+   */
+  async text2imgSD3(params: {
+    prompt: string;
+    mode?: 'text-to-image' | 'image-to-image';
+    aspect_ratio?: SD3AspectRatio;
+    negative_prompt?: string;
+    model?: 'sd3' | 'sd3-turbo';
+    image?: any; //image-to-image 必须
+    strength?: number; //image-to-image 必须
+    seed?: number;
+    style_preset?: SD3StylePreset;
+  }) {
+    const sd3url = 'https://api.stability.ai/v2beta/stable-image/generate/sd3';
+    // const formData = new FormData();
+    // formData.append('prompt', params.prompt);
+    // formData.append('mode', params.mode || 'text-to-image');
+    // formData.append('negative_prompt', params.negative_prompt || '');
+    // formData.append('model', params.model || 'sd3');
+    // formData.append('image', params.image);
+    // formData.append('strength', params.strength || 0.5);
+    // formData.append('seed', this.getSeed(9));
+    // formData.append('style_preset', params.style_preset || '');
+    // formData.append('output_format', 'png');
+    // if (params.mode === 'text-to-image') {
+    //   formData.append('aspect_ratio', params.aspect_ratio || '1:1');
+    // }
+    const formData = {
+      prompt: params.prompt,
+      mode: params.mode || 'text-to-image',
+      negative_prompt: params.negative_prompt || '',
+      model: params.model || 'sd3',
+      seed: this.getSeed(9),
+      style_preset: params.style_preset || '',
+      output_format: 'png',
+    };
+    if (!params.mode || params.mode === 'text-to-image') {
+      Object.assign(formData, {
+        aspect_ratio: params.aspect_ratio || '1:1',
+      });
+    }
+    if (params.mode === 'image-to-image') {
+      Object.assign(formData, {
+        strength: params.strength || 0.5,
+        image: params.image,
+      });
+    }
+    this.logger.log('提交SD的绘画数据', formData);
+    const response = await this.comfyuiAxios.postForm(
+      sd3url,
+      axios.toFormData(formData, new FormData()),
+      {
+        validateStatus: undefined,
+        responseType: 'arraybuffer',
+        headers: {
+          Authorization: `Bearer ${this.configService.get('CONFIG_SD3_APIKEY')}`,
+          Accept: 'image/*',
+          ContentType: 'multipart/form-data',
+        },
+      },
+    );
+    //将获取的Buffer转换为图片文件
+    if (response.status === 200) {
+      // console.log('data', response.data);
+      const buffer = Buffer.from(response.data);
+      //将Buffer上传到阿里云
+      return await this.fileService.uploadBufferToOSS(buffer, `image`);
+    } else {
+      console.log(response.request);
+      throw new Error(`${response.status}: ${response.data.toString()}`);
     }
   }
   /**
