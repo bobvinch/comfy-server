@@ -37,3 +37,5 @@ lerna-debug.log*
 docker-compose.yml
 .env.development
 .env.production
+
+temp.png

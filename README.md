@@ -37,6 +37,7 @@
 开始使用前请先安装redis，并配置.env .end.development .env.production环境变量中密码，如果有的话，没有密码则将密码配置删除
 然后检查环境变量中ComfyUI的http路径和websocket路径
 ## 功能介绍
+<p>0502更新，修复Redis相关问题，增加容器一键部署方式</p>
 <p>最新0411更新，重大更新，增加大量商业化能力，运营AI绘画商业网站必备后台服务器</p>
 <p>核心功能1：ComfyUI的绘画API服务和websocket转发，客户端必须使用socketIO链接，WS无法连接，注意版本</p>
 <p>核心功能2：方便将任意comfyui工作转换为在线API，向外提供AI能力</p>
@@ -48,6 +49,14 @@
 <p>一键接入微信公众号，并且支持利用别人的API接入微信绘画，支持多轮指令记忆，能够区分绘画指令和提示词</p>
 
 ## 如何使用
+<p>☆推荐使用docker-compose一键部署</p>
+<p>1.下载docker-compose.yml.example和init.sql两个文件到一个文件夹中</p>
+<p>2.取消.example后缀，修改docker-compose.yml中环境变量，主要修改ComfyUI的服务器地址和端口</p>
+<p>3.运行:docker-compose pull拉取镜像</p>
+<p>4.拉取完成后，运行docker-compose up -d启动容器</p>
+<p>5.打开127.0.0.3001/api-docs可以访问API地址和进行在线API调试</p>
+
+开发部署方式
 <p>1.先按照如下如下方式启动服务器</p>
 <p>2.客户端通过socketIO链接服务器，默认为3002端口，如果冲突在src/ws/ws.gateway.ts中修改</p>
 <p>3.以websocket消息形式提交，提交绘画任务,事件名称为draw,消息格式：{client_id:"userid", prompt:"comfyui API", api:"define a API name" }</p>
