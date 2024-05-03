@@ -10,6 +10,9 @@ import { RedisModule } from '@nestjs-modules/ioredis';
       useFactory: (config: ConfigService) => ({
         type: 'single',
         url: `redis://${config.get('CONFIG_COMFYUI_QUENE_REDIS_HOST')}:${config.get('CONFIG_COMFYUI_QUENE_REDIS_PORT')}`,
+        options:{
+          password: config.get('CONFIG_COMFYUI_QUENE_REDIS_PASSWORD')
+        }
       }),
       inject: [ConfigService],
     }),
